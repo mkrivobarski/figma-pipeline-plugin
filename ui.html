@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 11px;
+      background: var(--figma-color-bg, #1e1e1e);
+      color: var(--figma-color-text, rgba(255,255,255,0.9));
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────────────────── */
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      border-bottom: 1px solid var(--figma-color-border, #3c3c3c);
+      flex-shrink: 0;
+    }
+
+    .app-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: var(--figma-color-text, rgba(255,255,255,0.9));
+    }
+
+    .mcp-badge {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.45));
+    }
+
+    .mcp-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #555;
+      flex-shrink: 0;
+    }
+
+    .mcp-dot.connected {
+      background: #18a957;
+      box-shadow: 0 0 5px rgba(24,169,87,0.6);
+    }
+
+    /* ── Scroll panel ────────────────────────────────────────────────────── */
+    .panel {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 10px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ── Section label ───────────────────────────────────────────────────── */
+    .label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.4));
+      margin-bottom: 5px;
+    }
+
+    /* ── Target box ──────────────────────────────────────────────────────── */
+    .target-box {
+      min-height: 38px;
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 5px;
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .target-icon {
+      font-size: 14px;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .target-info { flex: 1; overflow: hidden; }
+
+    .target-name {
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--figma-color-text, rgba(255,255,255,0.9));
+    }
+
+    .target-meta {
+      font-size: 9px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.4));
+      margin-top: 2px;
+    }
+
+    .target-empty {
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.35));
+      font-style: italic;
+    }
+
+    /* ── Intent pills ────────────────────────────────────────────────────── */
+    .intent-row {
+      display: flex;
+      gap: 5px;
+    }
+
+    .intent-btn {
+      flex: 1;
+      padding: 5px 4px;
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 4px;
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.5));
+      font-family: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      text-align: center;
+      transition: border-color 0.1s, color 0.1s, background 0.1s;
+    }
+
+    .intent-btn:hover { color: var(--figma-color-text, rgba(255,255,255,0.85)); }
+
+    .intent-btn.active {
+      background: #1e6fe0;
+      border-color: #1e6fe0;
+      color: #fff;
+    }
+
+    /* ── Inputs ──────────────────────────────────────────────────────────── */
+    textarea, input[type=text] {
+      width: 100%;
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 5px;
+      color: var(--figma-color-text, rgba(255,255,255,0.9));
+      font-family: inherit;
+      font-size: 11px;
+      outline: none;
+      transition: border-color 0.1s;
+    }
+
+    textarea {
+      padding: 8px 9px;
+      line-height: 1.45;
+      resize: none;
+    }
+
+    input[type=text] { padding: 6px 9px; }
+
+    textarea::placeholder, input[type=text]::placeholder {
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.28));
+    }
+
+    textarea:focus, input[type=text]:focus { border-color: #1e6fe0; }
+
+    /* ── Submit ──────────────────────────────────────────────────────────── */
+    .submit-btn {
+      width: 100%;
+      padding: 8px;
+      background: #1e6fe0;
+      border: none;
+      border-radius: 5px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.1s;
+    }
+
+    .submit-btn:hover:not(:disabled) { opacity: 0.85; }
+    .submit-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    /* ── Feedback toast ──────────────────────────────────────────────────── */
+    .feedback {
+      font-size: 10px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      display: none;
+    }
+
+    .feedback.ok {
+      background: rgba(24,169,87,0.15);
+      border: 1px solid rgba(24,169,87,0.35);
+      color: #18a957;
+    }
+
+    .feedback.err {
+      background: rgba(242,72,34,0.12);
+      border: 1px solid rgba(242,72,34,0.3);
+      color: #f24822;
+    }
+
+    /* ── Divider ─────────────────────────────────────────────────────────── */
+    .divider {
+      border: none;
+      border-top: 1px solid var(--figma-color-border, #3c3c3c);
+    }
+
+    /* ── Queue ───────────────────────────────────────────────────────────── */
+    .queue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .queue-toggle {
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.35));
+    }
+
+    .queue-body { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+
+    .queue-item {
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 5px;
+      padding: 7px 9px;
+    }
+
+    .queue-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+
+    .queue-item-name {
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 170px;
+      color: var(--figma-color-text, rgba(255,255,255,0.8));
+    }
+
+    .q-status {
+      font-size: 9px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      text-transform: uppercase;
+    }
+
+    .q-status.pending    { background: rgba(245,166,35,0.18); color: #f5a623; }
+    .q-status.processing { background: rgba(30,111,224,0.18); color: #5b9cf6; }
+    .q-status.done       { background: rgba(24,169,87,0.18);  color: #18a957; }
+    .q-status.failed     { background: rgba(242,72,34,0.14);  color: #f24822; }
+
+    .queue-item-text {
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.45));
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .queue-empty {
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.3));
+      font-style: italic;
+      text-align: center;
+      padding: 6px 0;
+    }
+
+    .queue-clear-btn {
+      font-size: 9px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.3));
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      font-family: inherit;
+    }
+
+    .queue-clear-btn:hover { color: #f24822; }
+
+    /* ── Light theme ─────────────────────────────────────────────────────── */
+    @media (prefers-color-scheme: light) {
+      body { background: #f5f5f5; color: #1e1e1e; }
+      .top-bar, .target-box, .queue-item { background: #fff; border-color: #e5e5e5; }
+      textarea, input[type=text] { background: #fff; border-color: #e5e5e5; color: #1e1e1e; }
+      .app-title, .target-name, .queue-item-name { color: #1e1e1e; }
+      .label, .target-meta, .target-empty, .mcp-badge,
+      .queue-toggle, .queue-item-text, .queue-empty { color: #999; }
+      .intent-btn { background: #fff; border-color: #e5e5e5; color: #666; }
+      textarea::placeholder, input[type=text]::placeholder { color: #bbb; }
+      .divider { border-color: #e5e5e5; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div class="top-bar">
+    <span class="app-title">Design Pipeline</span>
+    <div class="mcp-badge">
+      <div class="mcp-dot" id="mcp-dot"></div>
+      <span id="mcp-label">MCP offline</span>
+    </div>
+  </div>
+
+  <!-- Main panel -->
+  <div class="panel">
+
+    <!-- Target -->
+    <div>
+      <div class="label">Target</div>
+      <div class="target-box" id="target-box">
+        <span class="target-empty" id="target-empty">Select a node in Figma</span>
+        <span class="target-icon" id="target-icon" style="display:none"></span>
+        <div class="target-info" id="target-info" style="display:none">
+          <div class="target-name" id="target-name"></div>
+          <div class="target-meta" id="target-meta"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Intent -->
+    <div>
+      <div class="label">Intent</div>
+      <div class="intent-row" id="intent-row">
+        <button class="intent-btn active" data-intent="iterate">Iterate</button>
+        <button class="intent-btn" data-intent="redesign">Redesign</button>
+        <button class="intent-btn" data-intent="fix">Fix</button>
+        <button class="intent-btn" data-intent="review">Review</button>
+      </div>
+    </div>
+
+    <!-- Instructions -->
+    <div>
+      <div class="label">Instructions</div>
+      <textarea id="instruction" rows="4"
+        placeholder="Describe what you want to change…"></textarea>
+    </div>
+
+    <!-- Constraints -->
+    <div>
+      <div class="label">Constraints <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(optional)</span></div>
+      <input type="text" id="constraints"
+        placeholder="e.g. keep WCAG AA contrast, don't change layout" />
+    </div>
+
+    <!-- Submit -->
+    <button class="submit-btn" id="submit-btn" disabled>Submit to Pipeline</button>
+
+    <!-- Feedback -->
+    <div class="feedback" id="feedback"></div>
+
+    <!-- Queue -->
+    <hr class="divider" id="queue-divider" style="display:none">
+    <div id="queue-section" style="display:none">
+      <div class="queue-header" id="queue-header">
+        <div class="label" style="margin-bottom:0">Queue</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="queue-clear-btn" id="queue-clear-btn" style="display:none">clear done</button>
+          <span class="queue-toggle" id="queue-toggle">▾</span>
+        </div>
+      </div>
+      <div class="queue-body" id="queue-body"></div>
+    </div>
+
+  </div>
+
+  <script>
+    // =========================================================================
+    // STATE
+    // =========================================================================
+    var state = {
+      nodeId:   null,
+      nodeName: null,
+      nodeType: null,
+      intent:   'iterate',
+      queueOpen: true,
+      queue:    [],      // { nodeId, nodeName, nodeType, instruction, intent, status }
+      mcpConnected: false
+    };
+
+    var requestIdCounter = 0;
+    var pendingRequests = new Map();
+
+    // =========================================================================
+    // PLUGIN MESSAGING
+    // =========================================================================
+    function sendToPlugin(type, params, timeoutMs) {
+      timeoutMs = timeoutMs || 10000;
+      return new Promise(function (resolve, reject) {
+        var requestId = type + '_' + (++requestIdCounter) + '_' + Date.now();
+        var tid = setTimeout(function () {
+          pendingRequests.delete(requestId);
+          reject(new Error(type + ' timed out'));
+        }, timeoutMs);
+        pendingRequests.set(requestId, { resolve: resolve, reject: reject, tid: tid });
+        var msg = Object.assign({ type: type, requestId: requestId }, params || {});
+        parent.postMessage({ pluginMessage: msg }, '*');
+      });
+    }
+
+    window.onmessage = function (event) {
+      var msg = event.data && event.data.pluginMessage;
+      if (!msg) return;
+
+      // Resolve pending promise
+      var req = pendingRequests.get(msg.requestId);
+      if (req) {
+        clearTimeout(req.tid);
+        pendingRequests.delete(msg.requestId);
+        req.resolve(msg);
+        return;
+      }
+
+      // Unsolicited messages
+      if (msg.type === 'SELECTION_CHANGE') {
+        updateTarget(msg.data);
+      }
+    };
+
+    // =========================================================================
+    // NODE TYPE → ICON
+    // =========================================================================
+    var ICONS = {
+      FRAME: '▢', SECTION: '⬜', COMPONENT: '◈', COMPONENT_SET: '◈',
+      INSTANCE: '◇', TEXT: 'T', RECTANGLE: '▬', ELLIPSE: '○',
+      GROUP: '⬡', VECTOR: '✦', LINE: '—', POLYGON: '△', STAR: '★'
+    };
+
+    function nodeIcon(type) { return ICONS[type] || '◻'; }
+
+    // =========================================================================
+    // TARGET DISPLAY
+    // =========================================================================
+    function updateTarget(data) {
+      var empty    = document.getElementById('target-empty');
+      var icon     = document.getElementById('target-icon');
+      var info     = document.getElementById('target-info');
+      var nameEl   = document.getElementById('target-name');
+      var metaEl   = document.getElementById('target-meta');
+
+      if (!data || !data.nodes || data.nodes.length === 0) {
+        state.nodeId = null; state.nodeName = null; state.nodeType = null;
+        empty.style.display = ''; icon.style.display = 'none'; info.style.display = 'none';
+        syncSubmit(); return;
+      }
+
+      var node = data.nodes[0];
+      state.nodeId   = node.id;
+      state.nodeName = node.name;
+      state.nodeType = node.type;
+
+      empty.style.display = 'none';
+      icon.style.display  = '';
+      info.style.display  = '';
+      icon.textContent    = nodeIcon(node.type);
+      nameEl.textContent  = node.name;
+      metaEl.textContent  = node.type + ' · ' + (data.page || '')
+        + (data.nodes.length > 1 ? ' + ' + (data.nodes.length - 1) + ' more' : '');
+
+      syncSubmit();
+    }
+
+    // =========================================================================
+    // SUBMIT STATE
+    // =========================================================================
+    function syncSubmit() {
+      var txt = document.getElementById('instruction').value.trim();
+      document.getElementById('submit-btn').disabled = !(state.nodeId && txt.length > 0);
+    }
+
+    // =========================================================================
+    // FEEDBACK
+    // =========================================================================
+    function showFeedback(text, isError) {
+      var el = document.getElementById('feedback');
+      el.textContent = text;
+      el.className = 'feedback ' + (isError ? 'err' : 'ok');
+      el.style.display = 'block';
+      setTimeout(function () { el.style.display = 'none'; }, isError ? 6000 : 3000);
+    }
+
+    // =========================================================================
+    // QUEUE RENDERING
+    // =========================================================================
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function renderQueue() {
+      var section  = document.getElementById('queue-section');
+      var divider  = document.getElementById('queue-divider');
+      var body     = document.getElementById('queue-body');
+      var clearBtn = document.getElementById('queue-clear-btn');
+
+      if (state.queue.length === 0) {
+        section.style.display = 'none';
+        divider.style.display = 'none';
+        return;
+      }
+
+      section.style.display = '';
+      divider.style.display = '';
+
+      var hasDone = state.queue.some(function (i) { return i.status === 'done' || i.status === 'failed'; });
+      clearBtn.style.display = hasDone ? '' : 'none';
+
+      if (!state.queueOpen) { body.style.display = 'none'; return; }
+      body.style.display = 'flex';
+
+      body.innerHTML = state.queue.slice().reverse().map(function (item) {
+        return '<div class="queue-item">'
+          + '<div class="queue-item-top">'
+          +   '<span class="queue-item-name">' + esc(item.nodeName) + '</span>'
+          +   '<span class="q-status ' + item.status + '">' + item.status + '</span>'
+          + '</div>'
+          + '<div class="queue-item-text">' + esc(item.instruction) + '</div>'
+          + '</div>';
+      }).join('');
+    }
+
+    // =========================================================================
+    // MCP WEBSOCKET (optional — notifies figma-console-mcp of queue changes)
+    // =========================================================================
+    (function () {
+      var WS_PORTS = [9223,9224,9225,9226,9227,9228,9229,9230,9231,9232];
+      var ws = null;
+
+      function tryConnect() {
+        var idx = 0;
+        function attempt() {
+          if (idx >= WS_PORTS.length) return;
+          var port = WS_PORTS[idx++];
+          try {
+            var sock = new WebSocket('ws://localhost:' + port);
+            var tid = setTimeout(function () { if (sock.readyState !== 1) sock.close(); }, 2000);
+            sock.onopen = function () {
+              clearTimeout(tid);
+              ws = sock;
+              setMcpStatus(true);
+              sock.onclose = function () { ws = null; setMcpStatus(false); };
+            };
+            sock.onerror = function () { clearTimeout(tid); attempt(); };
+            sock.onclose = function () { clearTimeout(tid); if (!ws) attempt(); };
+          } catch (e) { attempt(); }
+        }
+        attempt();
+      }
+
+      function setMcpStatus(connected) {
+        state.mcpConnected = connected;
+        document.getElementById('mcp-dot').className = 'mcp-dot' + (connected ? ' connected' : '');
+        document.getElementById('mcp-label').textContent = connected ? 'MCP connected' : 'MCP offline';
+      }
+
+      // Notify MCP server that the queue changed so it can trigger annotation-scanner
+      window.notifyMcpQueueChanged = function (payload) {
+        if (ws && ws.readyState === 1) {
+          try { ws.send(JSON.stringify({ type: 'PIPELINE_QUEUE_CHANGED', data: payload })); } catch (e) {}
+        }
+      };
+
+      tryConnect();
+    })();
+
+    // =========================================================================
+    // EVENT WIRING
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', function () {
+
+      // Intent buttons
+      document.getElementById('intent-row').addEventListener('click', function (e) {
+        var btn = e.target.closest('.intent-btn');
+        if (!btn) return;
+        document.querySelectorAll('.intent-btn').forEach(function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        state.intent = btn.dataset.intent;
+      });
+
+      // Instruction textarea
+      document.getElementById('instruction').addEventListener('input', syncSubmit);
+
+      // Submit
+      document.getElementById('submit-btn').addEventListener('click', function () {
+        var instruction = document.getElementById('instruction').value.trim();
+        var constraints = document.getElementById('constraints').value.trim() || null;
+        var btn = document.getElementById('submit-btn');
+
+        if (!state.nodeId || !instruction) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Submitting…';
+
+        sendToPlugin('PIPELINE_SUBMIT', {
+          nodeId:      state.nodeId,
+          instruction: instruction,
+          intent:      state.intent,
+          constraints: constraints
+        }).then(function (result) {
+          btn.textContent = 'Submit to Pipeline';
+          if (result.success) {
+            showFeedback('Queued: ' + state.nodeName, false);
+
+            state.queue.push({
+              nodeId:      state.nodeId,
+              nodeName:    state.nodeName,
+              nodeType:    state.nodeType,
+              instruction: instruction,
+              intent:      state.intent,
+              status:      'pending'
+            });
+            renderQueue();
+
+            // Notify MCP if connected
+            window.notifyMcpQueueChanged({
+              nodeId:   state.nodeId,
+              nodeName: state.nodeName,
+              intent:   state.intent
+            });
+
+            // Clear form
+            document.getElementById('instruction').value = '';
+            document.getElementById('constraints').value = '';
+            syncSubmit();
+          } else {
+            showFeedback(result.error || 'Submit failed', true);
+            btn.disabled = false;
+          }
+        }).catch(function (err) {
+          btn.textContent = 'Submit to Pipeline';
+          showFeedback(err.message || 'Submit failed', true);
+          btn.disabled = false;
+        });
+      });
+
+      // Queue header toggle
+      document.getElementById('queue-header').addEventListener('click', function () {
+        state.queueOpen = !state.queueOpen;
+        document.getElementById('queue-toggle').textContent = state.queueOpen ? '▾' : '▸';
+        renderQueue();
+      });
+
+      // Clear done items
+      document.getElementById('queue-clear-btn').addEventListener('click', function (e) {
+        e.stopPropagation();
+        state.queue = state.queue.filter(function (i) {
+          return i.status !== 'done' && i.status !== 'failed';
+        });
+        renderQueue();
+      });
+
+    });
+  </script>
+</body>
+</html>
