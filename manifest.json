@@ -5,32 +5,5 @@
   "main": "code.js",
   "ui": "ui.html",
   "editorType": ["figma", "dev"],
-  "documentAccess": "dynamic-page",
-  "networkAccess": {
-    "allowedDomains": [
-      "ws://localhost:9223",
-      "ws://localhost:9224",
-      "ws://localhost:9225",
-      "ws://localhost:9226",
-      "ws://localhost:9227",
-      "ws://localhost:9228",
-      "ws://localhost:9229",
-      "ws://localhost:9230",
-      "ws://localhost:9231",
-      "ws://localhost:9232"
-    ],
-    "reasoning": "Optionally connects to figma-console-mcp WebSocket server (ports 9223-9232) to push live queue-updated notifications. Core functionality works without this connection.",
-    "devAllowedDomains": [
-      "ws://localhost:9223",
-      "ws://localhost:9224",
-      "ws://localhost:9225",
-      "ws://localhost:9226",
-      "ws://localhost:9227",
-      "ws://localhost:9228",
-      "ws://localhost:9229",
-      "ws://localhost:9230",
-      "ws://localhost:9231",
-      "ws://localhost:9232"
-    ]
-  }
+  "documentAccess": "dynamic-page"
 }

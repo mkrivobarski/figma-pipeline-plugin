@@ -34,28 +34,7 @@
       color: var(--figma-color-text, rgba(255,255,255,0.9));
     }
 
-    .mcp-badge {
-      display: flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 10px;
-      color: var(--figma-color-text-secondary, rgba(255,255,255,0.45));
-    }
-
-    .mcp-dot {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #555;
-      flex-shrink: 0;
-    }
-
-    .mcp-dot.connected {
-      background: #18a957;
-      box-shadow: 0 0 5px rgba(24,169,87,0.6);
-    }
-
-    /* ── Scroll panel ────────────────────────────────────────────────────── */
+    /* ── Submit ──────────────────────────────────────────────────────────── */
     .panel {
       flex: 1;
       overflow-y: auto;
@@ -314,10 +293,6 @@
   <!-- Top bar -->
   <div class="top-bar">
     <span class="app-title">Design Pipeline</span>
-    <div class="mcp-badge">
-      <div class="mcp-dot" id="mcp-dot"></div>
-      <span id="mcp-label">MCP offline</span>
-    </div>
   </div>
 
   <!-- Main panel -->
@@ -392,8 +367,7 @@
       nodeType: null,
       intent:   'iterate',
       queueOpen: true,
-      queue:    [],      // { nodeId, nodeName, nodeType, instruction, intent, status }
-      mcpConnected: false
+      queue:    []      // { nodeId, nodeName, nodeType, instruction, intent, status }
     };
 
     var requestIdCounter = 0;
@@ -537,50 +511,6 @@
     }
 
     // =========================================================================
-    // MCP WEBSOCKET (optional — notifies figma-console-mcp of queue changes)
-    // =========================================================================
-    (function () {
-      var WS_PORTS = [9223,9224,9225,9226,9227,9228,9229,9230,9231,9232];
-      var ws = null;
-
-      function tryConnect() {
-        var idx = 0;
-        function attempt() {
-          if (idx >= WS_PORTS.length) return;
-          var port = WS_PORTS[idx++];
-          try {
-            var sock = new WebSocket('ws://localhost:' + port);
-            var tid = setTimeout(function () { if (sock.readyState !== 1) sock.close(); }, 2000);
-            sock.onopen = function () {
-              clearTimeout(tid);
-              ws = sock;
-              setMcpStatus(true);
-              sock.onclose = function () { ws = null; setMcpStatus(false); };
-            };
-            sock.onerror = function () { clearTimeout(tid); attempt(); };
-            sock.onclose = function () { clearTimeout(tid); if (!ws) attempt(); };
-          } catch (e) { attempt(); }
-        }
-        attempt();
-      }
-
-      function setMcpStatus(connected) {
-        state.mcpConnected = connected;
-        document.getElementById('mcp-dot').className = 'mcp-dot' + (connected ? ' connected' : '');
-        document.getElementById('mcp-label').textContent = connected ? 'MCP connected' : 'MCP offline';
-      }
-
-      // Notify MCP server that the queue changed so it can trigger annotation-scanner
-      window.notifyMcpQueueChanged = function (payload) {
-        if (ws && ws.readyState === 1) {
-          try { ws.send(JSON.stringify({ type: 'PIPELINE_QUEUE_CHANGED', data: payload })); } catch (e) {}
-        }
-      };
-
-      tryConnect();
-    })();
-
-    // =========================================================================
     // EVENT WIRING
     // =========================================================================
     document.addEventListener('DOMContentLoaded', function () {
@@ -627,13 +557,6 @@
               status:      'pending'
             });
             renderQueue();
-
-            // Notify MCP if connected
-            window.notifyMcpQueueChanged({
-              nodeId:   state.nodeId,
-              nodeName: state.nodeName,
-              intent:   state.intent
-            });
 
             // Clear form
             document.getElementById('instruction').value = '';
