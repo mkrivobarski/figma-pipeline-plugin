@@ -1,4 +1,6 @@
-# Design Pipeline Plugin
+# figma-pipeline-plugin
+
+## Design Pipeline Plugin
 
 A standalone Figma plugin that lets designers mark frames, components, and elements for pipeline iteration directly inside Figma. Selected nodes and instructions are stored in the file via `sharedPluginData` and picked up by the design pipeline on the next run.
 
