@@ -158,23 +158,6 @@
     .submit-btn:hover:not(:disabled) { opacity: 0.85; }
     .submit-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    .cancel-btn {
-      padding: 6px 11px;
-      background: none;
-      border: 1px solid var(--figma-color-border, #3c3c3c);
-      border-radius: 4px;
-      color: var(--figma-color-text-secondary, rgba(255,255,255,0.45));
-      font-family: inherit;
-      font-size: 11px;
-      cursor: pointer;
-      transition: color 0.1s, border-color 0.1s;
-    }
-
-    .cancel-btn:hover {
-      color: var(--figma-color-text, rgba(255,255,255,0.8));
-      border-color: var(--figma-color-text-secondary, rgba(255,255,255,0.3));
-    }
-
     /* ── Toast ────────────────────────────────────────────────────────────── */
     .toast {
       font-size: 10px;
@@ -249,6 +232,35 @@
 
     .queue-empty { font-size: 10px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.32)); font-style: italic; text-align: center; padding: 6px 0; }
 
+    .queue-item-remove {
+      flex-shrink: 0;
+      background: none;
+      border: none;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.28));
+      font-family: inherit;
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0 1px;
+      transition: color 0.1s;
+      align-self: center;
+    }
+
+    .queue-item-remove:hover { color: #f24822; }
+
+    .queue-clear-btn {
+      font-size: 9px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.35));
+      background: none;
+      border: none;
+      font-family: inherit;
+      cursor: pointer;
+      padding: 0;
+      transition: color 0.1s;
+    }
+
+    .queue-clear-btn:hover { color: var(--figma-color-text, rgba(255,255,255,0.7)); }
+
     /* ── Light theme ──────────────────────────────────────────────────────── */
     @media (prefers-color-scheme: light) {
       body { background: #f5f5f5; color: #1e1e1e; }
@@ -260,9 +272,11 @@
       .label, .target-meta, .target-empty, .queue-empty { color: #999; }
       .intent-btn { background: #fff; border-color: #e5e5e5; color: #666; }
       textarea::placeholder, input[type=text]::placeholder { color: #bbb; }
-      .cancel-btn { border-color: #e5e5e5; color: #999; }
-      .cancel-btn:hover { color: #333; border-color: #ccc; }
       .queue-item-meta { color: #aaa; }
+      .queue-toggle, .queue-clear-btn { color: #bbb; }
+      .queue-toggle:hover, .queue-clear-btn:hover { color: #555; }
+      .queue-item-remove { color: #ccc; }
+      .queue-item-remove:hover { color: #f24822; }
     }
   </style>
 </head>
@@ -319,7 +333,6 @@
 
     <!-- Buttons -->
     <div class="btn-row">
-      <button class="cancel-btn" id="cancel-btn">Cancel</button>
       <button class="submit-btn" id="submit-btn" disabled>Submit</button>
     </div>
 
@@ -327,7 +340,10 @@
     <div>
       <div class="queue-header" id="queue-header">
         <div class="label" style="margin-bottom:0">Queue</div>
-        <button class="queue-toggle" id="queue-toggle">▾ hide</button>
+        <div style="display:flex;gap:10px;align-items:center">
+          <button class="queue-clear-btn" id="queue-clear-done-btn" style="display:none">clear done</button>
+          <button class="queue-toggle" id="queue-toggle">▾ hide</button>
+        </div>
       </div>
       <div class="queue-list" id="queue-list">
         <div class="queue-empty" id="queue-empty">No pending instructions</div>
@@ -997,6 +1013,20 @@
         case 'PIPELINE_CLEAR_RESULT':
           renderQueue([]);
           showToast('Queue cleared', 'success');
+          pipelineScanQueue();
+          break;
+
+        case 'PIPELINE_REMOVE_ITEM_RESULT':
+          if (msg.success) {
+            pipelineScanQueue();
+          }
+          break;
+
+        case 'PIPELINE_CLEAR_COMPLETED_RESULT':
+          if (msg.success) {
+            showToast('Completed items cleared', 'success');
+            pipelineScanQueue();
+          }
           break;
       }
     };
@@ -1063,6 +1093,7 @@
     function renderQueue(targets) {
       var list  = document.getElementById('queue-list');
       var empty = document.getElementById('queue-empty');
+      var clearDoneBtn = document.getElementById('queue-clear-done-btn');
 
       // Remove all existing queue items (keep the empty placeholder)
       var items = list.querySelectorAll('.queue-item');
@@ -1070,14 +1101,18 @@
 
       if (!targets || targets.length === 0) {
         empty.style.display = '';
+        clearDoneBtn.style.display = 'none';
         return;
       }
 
       empty.style.display = 'none';
 
+      var hasDone = false;
+
       targets.forEach(function(t) {
         var item = document.createElement('div');
         item.className = 'queue-item';
+        item.dataset.nodeId = t.nodeId || '';
 
         var dot = document.createElement('div');
         dot.className = 'queue-status-dot ' + (t.status || 'pending');
@@ -1098,10 +1133,28 @@
 
         infoDiv.appendChild(nameDiv);
         infoDiv.appendChild(metaDiv);
+
+        var removeBtn = document.createElement('button');
+        removeBtn.className = 'queue-item-remove';
+        removeBtn.title = 'Remove from queue';
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', function(e) {
+          e.stopPropagation();
+          var nodeId = item.dataset.nodeId;
+          if (nodeId) {
+            parent.postMessage({ pluginMessage: { type: 'PIPELINE_REMOVE_ITEM', nodeId: nodeId } }, '*');
+          }
+        });
+
         item.appendChild(dot);
         item.appendChild(infoDiv);
+        item.appendChild(removeBtn);
         list.appendChild(item);
+
+        if (t.status === 'done' || t.status === 'failed') hasDone = true;
       });
+
+      clearDoneBtn.style.display = hasDone ? '' : 'none';
     }
 
     // Intent pills
@@ -1135,17 +1188,25 @@
       }}, '*');
     });
 
-    // Cancel
-    document.getElementById('cancel-btn').addEventListener('click', function() {
-      parent.postMessage({ pluginMessage: { type: 'PIPELINE_CLOSE' } }, '*');
-    });
-
-    // Queue toggle
+    // Queue toggle — only toggle on the header background, not on buttons inside it
     var queueVisible = true;
-    document.getElementById('queue-header').addEventListener('click', function() {
+    document.getElementById('queue-header').addEventListener('click', function(e) {
+      if (e.target.closest('button')) return;
       queueVisible = !queueVisible;
       document.getElementById('queue-list').style.display = queueVisible ? '' : 'none';
       document.getElementById('queue-toggle').textContent = queueVisible ? '▾ hide' : '▸ show';
+    });
+
+    document.getElementById('queue-toggle').addEventListener('click', function(e) {
+      e.stopPropagation();
+      queueVisible = !queueVisible;
+      document.getElementById('queue-list').style.display = queueVisible ? '' : 'none';
+      this.textContent = queueVisible ? '▾ hide' : '▸ show';
+    });
+
+    document.getElementById('queue-clear-done-btn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      parent.postMessage({ pluginMessage: { type: 'PIPELINE_CLEAR_COMPLETED' } }, '*');
     });
 
     // Load initial state on open

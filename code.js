@@ -2349,6 +2349,68 @@ figma.on('selectionchange', function () {
       return;
     }
 
+    // ── PIPELINE_REMOVE_ITEM ───────────────────────────────────────────────
+    if (msg.type === 'PIPELINE_REMOVE_ITEM') {
+      try {
+        var removeNode = await figma.getNodeByIdAsync(msg.nodeId);
+        if (!removeNode) throw new Error('Node not found: ' + msg.nodeId);
+        removeNode.setSharedPluginData('pipeline', 'instruction', '');
+        figma.ui.postMessage({
+          type: 'PIPELINE_REMOVE_ITEM_RESULT',
+          requestId: msg.requestId,
+          success: true,
+          data: { nodeId: msg.nodeId }
+        });
+      } catch (err) {
+        figma.ui.postMessage({
+          type: 'PIPELINE_REMOVE_ITEM_RESULT',
+          requestId: msg.requestId,
+          success: false,
+          error: err && err.message ? err.message : String(err)
+        });
+      }
+      return;
+    }
+
+    // ── PIPELINE_CLEAR_COMPLETED ───────────────────────────────────────────
+    if (msg.type === 'PIPELINE_CLEAR_COMPLETED') {
+      try {
+        await figma.loadAllPagesAsync();
+        var cleared = 0;
+        for (var pi = 0; pi < figma.root.children.length; pi++) {
+          var page = figma.root.children[pi];
+          var nodes = page.findAll(function (n) {
+            try { return !!n.getSharedPluginData('pipeline', 'instruction'); } catch (e) { return false; }
+          });
+          for (var ni = 0; ni < nodes.length; ni++) {
+            var raw = nodes[ni].getSharedPluginData('pipeline', 'instruction');
+            if (!raw) continue;
+            try {
+              var entry = JSON.parse(raw);
+              if (entry.status === 'done' || entry.status === 'failed') {
+                nodes[ni].setSharedPluginData('pipeline', 'instruction', '');
+                cleared++;
+              }
+            } catch (e) { /* skip malformed */ }
+          }
+        }
+        figma.ui.postMessage({
+          type: 'PIPELINE_CLEAR_COMPLETED_RESULT',
+          requestId: msg.requestId,
+          success: true,
+          data: { cleared: cleared }
+        });
+      } catch (err) {
+        figma.ui.postMessage({
+          type: 'PIPELINE_CLEAR_COMPLETED_RESULT',
+          requestId: msg.requestId,
+          success: false,
+          error: err && err.message ? err.message : String(err)
+        });
+      }
+      return;
+    }
+
     // ── PIPELINE_INIT_REQUEST ──────────────────────────────────────────────
     if (msg.type === 'PIPELINE_INIT_REQUEST') {
       var sel = figma.currentPage.selection;
