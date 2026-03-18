@@ -221,10 +221,11 @@
       margin-top: 2px;
     }
 
-    .queue-status-dot.pending    { background: #f5a623; }
-    .queue-status-dot.processing { background: #1e6fe0; animation: pulse 1.2s infinite; }
-    .queue-status-dot.done       { background: #18a957; }
-    .queue-status-dot.failed     { background: #f24822; }
+    .queue-status-dot.pending           { background: #f5a623; }
+    .queue-status-dot.processing        { background: #1e6fe0; animation: pulse 1.2s infinite; }
+    .queue-status-dot.done              { background: #18a957; }
+    .queue-status-dot.done-with-warnings{ background: #f5a623; }
+    .queue-status-dot.failed            { background: #f24822; }
 
     .queue-item-info { flex: 1; overflow: hidden; }
     .queue-item-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
@@ -1151,7 +1152,7 @@
         item.appendChild(removeBtn);
         list.appendChild(item);
 
-        if (t.status === 'done' || t.status === 'failed') hasDone = true;
+        if (t.status === 'done' || t.status === 'failed' || t.status === 'done-with-warnings') hasDone = true;
       });
 
       clearDoneBtn.style.display = hasDone ? '' : 'none';

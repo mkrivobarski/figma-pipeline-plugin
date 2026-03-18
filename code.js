@@ -2377,7 +2377,7 @@ async function handlePipelineClearCompleted(msg) {
         if (!raw) continue;
         try {
           var entry = JSON.parse(raw);
-          if (entry.status === 'done' || entry.status === 'failed') {
+          if (entry.status === 'done' || entry.status === 'failed' || entry.status === 'done-with-warnings') {
             nodes[ni].setSharedPluginData('pipeline', 'instruction', '');
             cleared++;
           }
