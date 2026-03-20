@@ -215,6 +215,7 @@
       transition: color 0.1s;
     }
     .queue-link:hover { color: var(--figma-color-text, rgba(255,255,255,0.75)); }
+    .queue-link-count { margin-left: 3px; }
 
     /* Active-count pip on queue link */
     .queue-btn-pip {
@@ -580,7 +581,7 @@
     <!-- Queue link — pinned above MCP bar -->
     <div class="home-queue-footer">
       <a class="queue-link" id="btn-queue" href="#">
-        Queue<span class="queue-btn-pip" id="queue-btn-pip"></span>
+        Queue<span class="queue-link-count" id="queue-link-count"></span><span class="queue-btn-pip" id="queue-btn-pip"></span>
       </a>
     </div>
 
@@ -1604,6 +1605,10 @@
           pip.classList.remove('has-active', 'has-processing');
         }
       }
+
+      // Queue link count
+      var linkCount = document.getElementById('queue-link-count');
+      if (linkCount) linkCount.textContent = _lastQueueItems.length > 0 ? '(' + _lastQueueItems.length + ')' : '';
 
       // Refresh node status in case queue changed
       updateNodeQueueStatus(pipelineState.nodeId);
