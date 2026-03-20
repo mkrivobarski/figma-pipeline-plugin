@@ -19,7 +19,7 @@ function debugLog() {
 }
 
 // Show minimal UI - compact status indicator
-figma.showUI(__html__, { width: 320, height: 560, visible: true, themeColors: true });
+figma.showUI(__html__, { width: 320, height: 480, visible: true, themeColors: true });
 
 // ============================================================================
 // CONSOLE CAPTURE — Intercept console.* in the QuickJS sandbox and forward
@@ -2116,7 +2116,7 @@ async function handleReloadUI(msg) {
       });
       // Short delay to let the response message be sent before reload
       setTimeout(function() {
-        figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: true });
+        figma.showUI(__html__, { width: 320, height: 480, visible: true, themeColors: true });
       }, 100);
     } catch (error) {
       var errorMsg = error && error.message ? error.message : String(error);
@@ -2310,6 +2310,7 @@ async function handlePipelineSubmit(msg) {
       instruction: msg.instruction.trim(),
       intent:      msg.intent || 'iterate',
       constraints: msg.constraints || null,
+      creativity:  msg.creativity || 'balanced',
       submittedAt: Date.now(),
       status:      'pending',
       nodeId:      targetNode.id,
@@ -2559,6 +2560,7 @@ async function handlePipelineGenerate(msg) {
       instruction:   msg.prompt.trim(),
       intent:        'generate',
       constraints:   msg.constraints || null,
+      creativity:    msg.creativity || 'balanced',
       scope:         'page',
       submittedAt:   Date.now(),
       status:        'pending',
@@ -2580,6 +2582,35 @@ async function handlePipelineGenerate(msg) {
   } catch (err) {
     figma.ui.postMessage({
       type: 'PIPELINE_GENERATE_RESULT',
+      requestId: msg.requestId,
+      success: false,
+      error: err && err.message ? err.message : String(err)
+    });
+  }
+}
+
+async function handlePipelineSelectNode(msg) {
+  // msg: { nodeId }
+  try {
+    var node = await figma.getNodeByIdAsync(msg.nodeId);
+    if (!node) throw new Error('Node not found: ' + msg.nodeId);
+    // Pages cannot be selected; navigate to the page instead
+    if (node.type === 'PAGE') {
+      await figma.setCurrentPageAsync(node);
+    } else {
+      // Navigate to the page containing the node
+      var parent = node.parent;
+      while (parent && parent.type !== 'PAGE') parent = parent.parent;
+      if (parent && parent.type === 'PAGE' && parent !== figma.currentPage) {
+        await figma.setCurrentPageAsync(parent);
+      }
+      figma.currentPage.selection = [node];
+      figma.viewport.scrollAndZoomIntoView([node]);
+    }
+    figma.ui.postMessage({ type: 'PIPELINE_SELECT_NODE_RESULT', requestId: msg.requestId, success: true });
+  } catch (err) {
+    figma.ui.postMessage({
+      type: 'PIPELINE_SELECT_NODE_RESULT',
       requestId: msg.requestId,
       success: false,
       error: err && err.message ? err.message : String(err)
@@ -2635,6 +2666,7 @@ var messageHandlers = {
   PIPELINE_UPDATE_STATUS:     handlePipelineUpdateStatus,
   PIPELINE_GET_SEMANTIC_DATA: handlePipelineGetSemanticData,
   PIPELINE_GENERATE:          handlePipelineGenerate,
+  PIPELINE_SELECT_NODE:       handlePipelineSelectNode,
 };
 
 // Single unified onmessage handler — dispatches to named handler via table

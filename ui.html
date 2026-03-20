@@ -180,25 +180,23 @@
       pointer-events: none;
     }
 
+    /* #20 — Generate is also primary blue; reuse .action-btn */
     .generate-btn-full {
       width: 100%;
       padding: 8px;
-      background: rgba(255,255,255,0.08);
-      border: 1px solid var(--figma-color-border, #3c3c3c);
+      background: #1e6fe0;
+      border: none;
       border-radius: 4px;
-      color: var(--figma-color-text, rgba(255,255,255,0.85));
+      color: #fff;
       font-family: inherit;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       text-align: center;
-      transition: background 0.1s, border-color 0.1s;
+      transition: opacity 0.1s;
     }
 
-    .generate-btn-full:hover {
-      background: rgba(255,255,255,0.12);
-      border-color: rgba(255,255,255,0.2);
-    }
+    .generate-btn-full:hover { opacity: 0.85; }
 
     /* ── Queue badge ──────────────────────────────────────────────────────── */
     .queue-badge {
@@ -377,6 +375,40 @@
 
     .queue-clear-btn:hover { color: var(--figma-color-text, rgba(255,255,255,0.7)); }
 
+    .queue-item { cursor: pointer; }
+    .queue-item:hover { background: var(--figma-color-bg-tertiary, #333); }
+    .queue-item.failed:hover { background: rgba(242,72,34,0.10); }
+
+    /* ── Toast notification ───────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 32px;
+      left: 10px;
+      right: 10px;
+      padding: 7px 10px;
+      background: #2c2c2c;
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 5px;
+      font-size: 11px;
+      color: var(--figma-color-text, rgba(255,255,255,0.85));
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(6px);
+      transition: opacity 0.2s, transform 0.2s;
+      pointer-events: none;
+    }
+    .toast.visible { opacity: 1; transform: translateY(0); }
+
+    /* ── Queue processing count ───────────────────────────────────────────── */
+    .queue-processing-count {
+      font-size: 10px;
+      color: #0d99ff;
+      margin-left: auto;
+      margin-right: 4px;
+      font-weight: 500;
+    }
+
     /* ── Light theme ──────────────────────────────────────────────────────── */
     @media (prefers-color-scheme: light) {
       body { background: #f5f5f5; color: #1e1e1e; }
@@ -387,8 +419,6 @@
       .target-name { color: #1e1e1e; }
       .label, .target-meta, .target-empty, .queue-empty { color: #999; }
       textarea::placeholder, input[type=text]::placeholder { color: #bbb; }
-      .generate-btn-full { background: rgba(0,0,0,0.04); border-color: #e5e5e5; color: #333; }
-      .generate-btn-full:hover { background: rgba(0,0,0,0.08); border-color: #ccc; }
       .creativity-btn { background: #fff; border-color: #e5e5e5; color: #999; }
       .creativity-btn:hover { color: #333; }
       .creativity-btn.active { background: rgba(30,111,224,0.08); border-color: rgba(30,111,224,0.35); color: #1e6fe0; }
@@ -397,6 +427,8 @@
       .queue-clear-btn:hover { color: #555; }
       .queue-item-remove { color: #ccc; }
       .queue-item-remove:hover { color: #f24822; }
+      .queue-item:hover { background: #efefef; }
+      .toast { background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
       .view-header { border-color: #e5e5e5; }
       .back-btn { color: #999; }
       .back-btn:hover { color: #333; }
@@ -570,6 +602,7 @@
     <div class="view-header">
       <button class="back-btn" id="back-from-queue">‹ Back</button>
       <span class="view-title">Queue</span>
+      <span class="queue-processing-count" id="queue-processing-count" style="display:none"></span>
       <div class="view-header-actions">
         <button class="queue-clear-btn" id="queue-clear-done-btn" style="display:none">clear done</button>
         <button class="queue-clear-btn" id="queue-refresh-btn" title="Full rescan">↻</button>
@@ -581,6 +614,9 @@
       </div>
     </div>
   </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
 
   <!-- MCP Bridge status bar — bottom, always visible -->
   <div class="bridge-bar">
@@ -1254,7 +1290,15 @@
           break;
 
         case 'PIPELINE_UPDATE_STATUS_RESULT':
-          if (msg.success) pipelineScanQueue();
+          if (msg.success) {
+            pipelineScanQueue();
+            // #11 — toast if status was set externally (MCP pipeline update)
+            showToast('Status updated');
+          }
+          break;
+
+        case 'PIPELINE_SELECT_NODE_RESULT':
+          if (!msg.success) showToast('Could not select node: ' + (msg.error || 'unknown error'), 4000);
           break;
 
         case 'PIPELINE_GENERATE_RESULT':
@@ -1282,6 +1326,16 @@
     };
 
     function nodeIcon(type) { return NODE_ICONS[type] || '◻'; }
+
+    // ── Toast ──────────────────────────────────────────────────────────────────
+    var _toastTimer = null;
+    function showToast(text, durationMs) {
+      var el = document.getElementById('toast');
+      el.textContent = text;
+      el.classList.add('visible');
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(function() { el.classList.remove('visible'); _toastTimer = null; }, durationMs || 3000);
+    }
 
     // ── View navigation ────────────────────────────────────────────────────────
     function showView(name) {
@@ -1418,11 +1472,23 @@
       var list         = document.getElementById('queue-list');
       var emptyEl      = document.getElementById('queue-empty');
       var clearDoneBtn = document.getElementById('queue-clear-done-btn');
+      var procCount    = document.getElementById('queue-processing-count');
 
       list.querySelectorAll('.queue-item').forEach(function(el) { el.remove(); });
 
       // #8 — always update badge regardless of active view
       updateQueueBadge(targets);
+
+      // Update processing count in queue header
+      var processing = (targets || []).filter(function(t) { return t.status === 'processing'; });
+      if (procCount) {
+        if (processing.length > 0) {
+          procCount.textContent = processing.length + ' running';
+          procCount.style.display = '';
+        } else {
+          procCount.style.display = 'none';
+        }
+      }
 
       // Only render list items when queue view is active
       var activeView = document.querySelector('.view.active');
@@ -1501,6 +1567,16 @@
         item.appendChild(dot);
         item.appendChild(infoDiv);
         item.appendChild(removeBtn);
+
+        // Click anywhere except the remove button → select node in Figma
+        item.addEventListener('click', function(e) {
+          if (e.target.closest('.queue-item-remove')) return;
+          var nodeId = this.dataset.nodeId;
+          if (nodeId) {
+            parent.postMessage({ pluginMessage: { type: 'PIPELINE_SELECT_NODE', nodeId: nodeId } }, '*');
+          }
+        });
+
         list.appendChild(item);
 
         if (t.status === 'done' || t.status === 'failed' || t.status === 'done-with-warnings') hasDone = true;
@@ -1695,6 +1771,23 @@
     document.getElementById('queue-refresh-btn').addEventListener('click', function(e) {
       e.stopPropagation();
       pipelineForceRescan();
+    });
+
+    // ── Keyboard shortcuts — Cmd/Ctrl+Enter to submit ──────────────────────────
+    document.addEventListener('keydown', function(e) {
+      if (!((e.metaKey || e.ctrlKey) && e.key === 'Enter')) return;
+      var activeView = document.querySelector('.view.active');
+      if (!activeView) return;
+      if (activeView.id === 'view-iterate') {
+        var btn = document.getElementById('iterate-submit-btn');
+        if (!btn.disabled) btn.click();
+      } else if (activeView.id === 'view-fix') {
+        var btn = document.getElementById('fix-submit-btn');
+        if (!btn.disabled) btn.click();
+      } else if (activeView.id === 'view-generate') {
+        var btn = document.getElementById('generate-btn');
+        if (!btn.disabled) btn.click();
+      }
     });
 
     // ── Initialize ─────────────────────────────────────────────────────────────
