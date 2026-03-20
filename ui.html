@@ -7,7 +7,7 @@
 
     body {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      font-size: 11px;
+      font-size: 12px;
       background: var(--figma-color-bg, #1e1e1e);
       color: var(--figma-color-text, rgba(255,255,255,0.9));
       display: flex;
@@ -17,7 +17,7 @@
       user-select: none;
     }
 
-    /* ── Bridge status bar ───────────────────────────────────────────────── */
+    /* ── Bridge status bar (bottom) ──────────────────────────────────────── */
     .bridge-bar {
       flex-shrink: 0;
       display: flex;
@@ -25,7 +25,8 @@
       gap: 6px;
       padding: 5px 10px;
       background: var(--figma-color-bg-secondary, #2c2c2c);
-      border-bottom: 1px solid var(--figma-color-border, #3c3c3c);
+      border-top: 1px solid var(--figma-color-border, #3c3c3c);
+      order: 99;
     }
 
     .status-indicator {
@@ -57,14 +58,62 @@
     .bridge-label { color: var(--figma-color-text-secondary, rgba(255,255,255,0.45)); font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
     .bridge-state { color: var(--figma-color-text, rgba(255,255,255,0.85)); font-size: 10px; font-weight: 500; margin-left: 3px; }
 
-    /* ── Pipeline panel ───────────────────────────────────────────────────── */
-    .panel {
+    /* ── View system ──────────────────────────────────────────────────────── */
+    .view {
+      display: none;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .view.active {
+      display: flex;
+    }
+
+    .view-body {
       flex: 1;
       overflow-y: auto;
       padding: 10px;
       display: flex;
       flex-direction: column;
       gap: 9px;
+    }
+
+    /* ── View header (back + title) ───────────────────────────────────────── */
+    .view-header {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--figma-color-border, #3c3c3c);
+    }
+
+    .back-btn {
+      background: none;
+      border: none;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.5));
+      font-family: inherit;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+      transition: color 0.1s;
+    }
+
+    .back-btn:hover { color: var(--figma-color-text, rgba(255,255,255,0.9)); }
+
+    .view-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--figma-color-text, rgba(255,255,255,0.9));
+    }
+
+    .view-header-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
     }
 
     /* ── Section label ────────────────────────────────────────────────────── */
@@ -75,6 +124,13 @@
       text-transform: uppercase;
       color: var(--figma-color-text-secondary, rgba(255,255,255,0.4));
       margin-bottom: 3px;
+    }
+
+    .label-optional {
+      font-weight: 400;
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 11px;
     }
 
     /* ── Target box ───────────────────────────────────────────────────────── */
@@ -92,33 +148,68 @@
     .target-icon { font-size: 12px; flex-shrink: 0; line-height: 1; }
     .target-info { flex: 1; overflow: hidden; }
     .target-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .target-meta { font-size: 9px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.4)); margin-top: 1px; }
-    .target-empty { font-size: 10px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.32)); font-style: italic; }
+    .target-meta { font-size: 11px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.4)); margin-top: 1px; }
+    .target-empty { font-size: 11px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.32)); font-style: italic; }
 
-    /* ── Intent pills ─────────────────────────────────────────────────────── */
-    .intent-row { display: flex; gap: 4px; }
+    /* ── Home action buttons ──────────────────────────────────────────────── */
+    .action-btn-row {
+      display: flex;
+      gap: 6px;
+    }
 
-    .intent-btn {
+    /* #18 — primary blue styling for Iterate + Fix, matching Generate */
+    .action-btn {
       flex: 1;
-      padding: 4px 2px;
-      border: 1px solid var(--figma-color-border, #3c3c3c);
+      padding: 8px 4px;
+      background: #1e6fe0;
+      border: none;
       border-radius: 4px;
-      background: var(--figma-color-bg-secondary, #2c2c2c);
-      color: var(--figma-color-text-secondary, rgba(255,255,255,0.5));
+      color: #fff;
       font-family: inherit;
-      font-size: 10px;
+      font-size: 12px;
+      font-weight: 600;
       cursor: pointer;
       text-align: center;
-      transition: border-color 0.1s, color 0.1s, background 0.1s;
+      transition: opacity 0.1s;
     }
 
-    .intent-btn:hover { color: var(--figma-color-text, rgba(255,255,255,0.85)); }
+    .action-btn:hover:not(.disabled) { opacity: 0.85; }
 
-    .intent-btn.active {
-      background: #1e6fe0;
-      border-color: #1e6fe0;
-      color: #fff;
+    .action-btn.disabled {
+      opacity: 0.35;
+      pointer-events: none;
     }
+
+    .generate-btn-full {
+      width: 100%;
+      padding: 8px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 4px;
+      color: var(--figma-color-text, rgba(255,255,255,0.85));
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.1s, border-color 0.1s;
+    }
+
+    .generate-btn-full:hover {
+      background: rgba(255,255,255,0.12);
+      border-color: rgba(255,255,255,0.2);
+    }
+
+    /* ── Queue badge ──────────────────────────────────────────────────────── */
+    .queue-badge {
+      font-size: 11px;
+      color: #1e6fe0;
+      cursor: pointer;
+      text-decoration: none;
+      display: none;
+    }
+
+    .queue-badge:hover { text-decoration: underline; }
 
     /* ── Inputs ───────────────────────────────────────────────────────────── */
     textarea, input[type=text] {
@@ -128,7 +219,7 @@
       border-radius: 4px;
       color: var(--figma-color-text, rgba(255,255,255,0.9));
       font-family: inherit;
-      font-size: 11px;
+      font-size: 12px;
       outline: none;
       transition: border-color 0.1s;
     }
@@ -138,18 +229,45 @@
     textarea::placeholder, input[type=text]::placeholder { color: var(--figma-color-text-secondary, rgba(255,255,255,0.28)); }
     textarea:focus, input[type=text]:focus { border-color: #1e6fe0; }
 
-    /* ── Buttons ──────────────────────────────────────────────────────────── */
-    .btn-row { display: flex; gap: 6px; }
+    /* ── Creativity control ───────────────────────────────────────────────── */
+    .creativity-row {
+      display: flex;
+      gap: 4px;
+    }
 
-    .submit-btn {
+    .creativity-btn {
       flex: 1;
-      padding: 6px;
+      padding: 5px 4px;
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 4px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.5));
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 500;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.1s, border-color 0.1s, color 0.1s;
+    }
+
+    .creativity-btn:hover { color: var(--figma-color-text, rgba(255,255,255,0.85)); }
+
+    .creativity-btn.active {
+      background: rgba(30,111,224,0.18);
+      border-color: rgba(30,111,224,0.5);
+      color: #7aabf7;
+    }
+
+    /* ── Submit button ────────────────────────────────────────────────────── */
+    .submit-btn {
+      width: 100%;
+      padding: 7px;
       background: #1e6fe0;
       border: none;
       border-radius: 4px;
       color: #fff;
       font-family: inherit;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       transition: opacity 0.1s;
@@ -158,49 +276,22 @@
     .submit-btn:hover:not(:disabled) { opacity: 0.85; }
     .submit-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
-    /* ── Toast ────────────────────────────────────────────────────────────── */
-    .toast {
-      font-size: 10px;
+    /* ── Inline error ─────────────────────────────────────────────────────── */
+    .inline-error {
+      font-size: 11px;
+      color: #f24822;
       padding: 5px 8px;
+      background: rgba(242,72,34,0.08);
+      border: 1px solid rgba(242,72,34,0.25);
       border-radius: 4px;
       display: none;
     }
 
-    .toast.success {
-      background: rgba(24,169,87,0.12);
-      border: 1px solid rgba(24,169,87,0.3);
-      color: #18a957;
-    }
-
-    .toast.error {
-      background: rgba(242,72,34,0.12);
-      border: 1px solid rgba(242,72,34,0.3);
-      color: #f24822;
-    }
-
     /* ── Queue section ────────────────────────────────────────────────────── */
-    .queue-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      cursor: pointer;
-    }
-
-    .queue-toggle {
-      font-size: 9px;
-      color: var(--figma-color-text-secondary, rgba(255,255,255,0.35));
-      background: none;
-      border: none;
-      font-family: inherit;
-      cursor: pointer;
-      padding: 0;
-    }
-
     .queue-list {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      margin-top: 4px;
     }
 
     .queue-item {
@@ -213,12 +304,20 @@
       gap: 6px;
     }
 
+    .queue-item.processing {
+      border-left: 2px solid #0d99ff;
+    }
+
+    .queue-item.failed {
+      background: rgba(242,72,34,0.06);
+    }
+
     .queue-status-dot {
       width: 6px;
       height: 6px;
       border-radius: 50%;
       flex-shrink: 0;
-      margin-top: 2px;
+      margin-top: 3px;
     }
 
     .queue-status-dot.pending           { background: #f5a623; }
@@ -243,10 +342,11 @@
     }
 
     .queue-item-info { flex: 1; overflow: hidden; }
-    .queue-item-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
-    .queue-item-meta { font-size: 9px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.38)); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .queue-item-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; }
+    .queue-item-status-text { font-size: 11px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.38)); margin-top: 1px; }
+    .queue-item-meta { font-size: 11px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.38)); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .queue-empty { font-size: 10px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.32)); font-style: italic; text-align: center; padding: 6px 0; }
+    .queue-empty { font-size: 11px; color: var(--figma-color-text-secondary, rgba(255,255,255,0.32)); font-style: italic; text-align: center; padding: 8px 0; }
 
     .queue-item-remove {
       flex-shrink: 0;
@@ -265,7 +365,7 @@
     .queue-item-remove:hover { color: #f24822; }
 
     .queue-clear-btn {
-      font-size: 9px;
+      font-size: 11px;
       color: var(--figma-color-text-secondary, rgba(255,255,255,0.35));
       background: none;
       border: none;
@@ -286,122 +386,207 @@
       .target-box, textarea, input[type=text], .queue-item { background: #fff; border-color: #e5e5e5; }
       .target-name { color: #1e1e1e; }
       .label, .target-meta, .target-empty, .queue-empty { color: #999; }
-      .intent-btn { background: #fff; border-color: #e5e5e5; color: #666; }
       textarea::placeholder, input[type=text]::placeholder { color: #bbb; }
-      .queue-item-meta { color: #aaa; }
-      .queue-toggle, .queue-clear-btn { color: #bbb; }
-      .queue-toggle:hover, .queue-clear-btn:hover { color: #555; }
+      .generate-btn-full { background: rgba(0,0,0,0.04); border-color: #e5e5e5; color: #333; }
+      .generate-btn-full:hover { background: rgba(0,0,0,0.08); border-color: #ccc; }
+      .creativity-btn { background: #fff; border-color: #e5e5e5; color: #999; }
+      .creativity-btn:hover { color: #333; }
+      .creativity-btn.active { background: rgba(30,111,224,0.08); border-color: rgba(30,111,224,0.35); color: #1e6fe0; }
+      .queue-item-meta, .queue-item-status-text { color: #aaa; }
+      .queue-clear-btn { color: #bbb; }
+      .queue-clear-btn:hover { color: #555; }
       .queue-item-remove { color: #ccc; }
       .queue-item-remove:hover { color: #f24822; }
+      .view-header { border-color: #e5e5e5; }
+      .back-btn { color: #999; }
+      .back-btn:hover { color: #333; }
     }
-
-    /* ── Generate panel ───────────────────────────────────────────────────── */
-    .generate-section {
-      border-top: 1px solid var(--figma-color-border, #3c3c3c);
-      padding-top: 9px;
-    }
-
-    .generate-row { display: flex; gap: 6px; align-items: flex-end; }
-
-    .page-input {
-      flex: 1;
-    }
-
-    .intent-btn.generate-btn {
-      background: rgba(99,102,241,0.12);
-      border-color: rgba(99,102,241,0.3);
-      color: #818cf8;
-    }
-    .intent-btn.generate-btn:hover { background: rgba(99,102,241,0.22); color: #a5b4fc; }
   </style>
 </head>
 <body>
 
-  <!-- MCP Bridge status bar -->
-  <div class="bridge-bar">
-    <div class="status-indicator loading" id="status-dot"></div>
-    <span class="bridge-label">MCP</span>
-    <span class="bridge-state" id="status-state">connecting</span>
+  <!-- ── VIEW: Home ─────────────────────────────────────────────────────── -->
+  <div class="view active" id="view-home">
+    <div class="view-body">
+
+      <!-- Target -->
+      <div>
+        <div class="label">Target</div>
+        <div class="target-box" id="home-target-box">
+          <span class="target-empty" id="home-target-empty">Select a node in Figma</span>
+          <span class="target-icon" id="home-target-icon" style="display:none"></span>
+          <div class="target-info" id="home-target-info" style="display:none">
+            <div class="target-name" id="home-target-name"></div>
+            <div class="target-meta" id="home-target-meta"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Iterate + Fix (primary) -->
+      <div class="action-btn-row">
+        <button class="action-btn disabled" id="btn-iterate">Iterate</button>
+        <button class="action-btn disabled" id="btn-fix">Fix</button>
+      </div>
+
+      <!-- Generate (secondary) -->
+      <button class="generate-btn-full" id="btn-generate">Generate</button>
+
+      <!-- Queue badge -->
+      <a class="queue-badge" id="queue-badge" href="#">3 pending ›</a>
+
+    </div>
   </div>
 
-  <!-- Pipeline panel -->
-  <div class="panel">
+  <!-- ── VIEW: Iterate ──────────────────────────────────────────────────── -->
+  <div class="view" id="view-iterate">
+    <div class="view-header">
+      <button class="back-btn" id="back-from-iterate">‹ Back</button>
+      <span class="view-title">Iterate</span>
+    </div>
+    <div class="view-body">
 
-    <!-- Target -->
-    <div>
-      <div class="label">Target</div>
-      <div class="target-box" id="target-box">
-        <span class="target-empty" id="target-empty">Select a node in Figma</span>
-        <span class="target-icon" id="target-icon" style="display:none"></span>
-        <div class="target-info" id="target-info" style="display:none">
-          <div class="target-name" id="target-name"></div>
-          <div class="target-meta" id="target-meta"></div>
+      <div>
+        <div class="label">Target</div>
+        <div class="target-box" id="iterate-target-box">
+          <span class="target-empty" id="iterate-target-empty">No node selected</span>
+          <span class="target-icon" id="iterate-target-icon" style="display:none"></span>
+          <div class="target-info" id="iterate-target-info" style="display:none">
+            <div class="target-name" id="iterate-target-name"></div>
+            <div class="target-meta" id="iterate-target-meta"></div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Intent -->
-    <div>
-      <div class="label">Intent</div>
-      <div class="intent-row" id="intent-row">
-        <button class="intent-btn active" data-intent="iterate">Iterate</button>
-        <button class="intent-btn" data-intent="redesign">Redesign</button>
-        <button class="intent-btn" data-intent="fix">Fix</button>
-        <button class="intent-btn" data-intent="review">Review</button>
+      <div>
+        <div class="label">Instructions</div>
+        <textarea id="iterate-instruction" rows="4" placeholder="Describe what you want to change…"></textarea>
       </div>
-    </div>
 
-    <!-- Instructions -->
-    <div>
-      <div class="label">Instructions</div>
-      <textarea id="instruction" rows="3" placeholder="Describe what you want to change…"></textarea>
-    </div>
+      <div>
+        <div class="label">Constraints <span class="label-optional">(optional)</span></div>
+        <input type="text" id="iterate-constraints" placeholder="e.g. keep WCAG AA contrast" />
+      </div>
 
-    <!-- Constraints -->
-    <div>
-      <div class="label">Constraints <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:10px">(optional)</span></div>
-      <input type="text" id="constraints" placeholder="e.g. keep WCAG AA contrast" />
-    </div>
-
-    <!-- Toast -->
-    <div class="toast" id="toast"></div>
-
-    <!-- Buttons -->
-    <div class="btn-row">
-      <button class="submit-btn" id="submit-btn" disabled>Submit</button>
-    </div>
-
-    <!-- Queue -->
-    <div>
-      <div class="queue-header" id="queue-header">
-        <div class="label" style="margin-bottom:0">Queue</div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <button class="queue-clear-btn" id="queue-clear-done-btn" style="display:none">clear done</button>
-          <button class="queue-clear-btn" id="queue-refresh-btn" title="Full rescan">↻</button>
-          <button class="queue-toggle" id="queue-toggle">▾ hide</button>
+      <div>
+        <div class="label">Creativity</div>
+        <div class="creativity-row" id="iterate-creativity-row">
+          <button class="creativity-btn" data-value="precise">Precise</button>
+          <button class="creativity-btn active" data-value="balanced">Balanced</button>
+          <button class="creativity-btn" data-value="creative">Creative</button>
         </div>
       </div>
+
+      <div class="inline-error" id="iterate-error"></div>
+      <button class="submit-btn" id="iterate-submit-btn" disabled>Submit</button>
+
+    </div>
+  </div>
+
+  <!-- ── VIEW: Fix ──────────────────────────────────────────────────────── -->
+  <div class="view" id="view-fix">
+    <div class="view-header">
+      <button class="back-btn" id="back-from-fix">‹ Back</button>
+      <span class="view-title">Fix</span>
+    </div>
+    <div class="view-body">
+
+      <div>
+        <div class="label">Target</div>
+        <div class="target-box" id="fix-target-box">
+          <span class="target-empty" id="fix-target-empty">No node selected</span>
+          <span class="target-icon" id="fix-target-icon" style="display:none"></span>
+          <div class="target-info" id="fix-target-info" style="display:none">
+            <div class="target-name" id="fix-target-name"></div>
+            <div class="target-meta" id="fix-target-meta"></div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="label">Instructions</div>
+        <textarea id="fix-instruction" rows="4" placeholder="Describe what needs to be fixed…"></textarea>
+      </div>
+
+      <div>
+        <div class="label">Constraints <span class="label-optional">(optional)</span></div>
+        <input type="text" id="fix-constraints" placeholder="e.g. keep WCAG AA contrast" />
+      </div>
+
+      <div>
+        <div class="label">Creativity</div>
+        <div class="creativity-row" id="fix-creativity-row">
+          <button class="creativity-btn" data-value="precise">Precise</button>
+          <button class="creativity-btn active" data-value="balanced">Balanced</button>
+          <button class="creativity-btn" data-value="creative">Creative</button>
+        </div>
+      </div>
+
+      <div class="inline-error" id="fix-error"></div>
+      <button class="submit-btn" id="fix-submit-btn" disabled>Submit</button>
+
+    </div>
+  </div>
+
+  <!-- ── VIEW: Generate ─────────────────────────────────────────────────── -->
+  <div class="view" id="view-generate">
+    <div class="view-header">
+      <button class="back-btn" id="back-from-generate">‹ Back</button>
+      <span class="view-title">Generate</span>
+    </div>
+    <div class="view-body">
+
+      <div>
+        <div class="label">Prompt</div>
+        <textarea id="generate-prompt" rows="4" placeholder="Describe a component or screen to generate — e.g. 'Login screen with email + password fields and a Sign In button'"></textarea>
+      </div>
+
+      <div>
+        <div class="label">Page <span class="label-optional">(optional)</span></div>
+        <input type="text" id="generate-page" placeholder="Leave blank for current page" />
+      </div>
+
+      <div>
+        <div class="label">Constraints <span class="label-optional">(optional)</span></div>
+        <input type="text" id="generate-constraints" placeholder="e.g. use existing tokens" />
+      </div>
+
+      <div>
+        <div class="label">Creativity</div>
+        <div class="creativity-row" id="generate-creativity-row">
+          <button class="creativity-btn" data-value="precise">Precise</button>
+          <button class="creativity-btn active" data-value="balanced">Balanced</button>
+          <button class="creativity-btn" data-value="creative">Creative</button>
+        </div>
+      </div>
+
+      <div class="inline-error" id="generate-error"></div>
+      <button class="submit-btn" id="generate-btn" disabled>Generate</button>
+
+    </div>
+  </div>
+
+  <!-- ── VIEW: Queue ────────────────────────────────────────────────────── -->
+  <div class="view" id="view-queue">
+    <div class="view-header">
+      <button class="back-btn" id="back-from-queue">‹ Back</button>
+      <span class="view-title">Queue</span>
+      <div class="view-header-actions">
+        <button class="queue-clear-btn" id="queue-clear-done-btn" style="display:none">clear done</button>
+        <button class="queue-clear-btn" id="queue-refresh-btn" title="Full rescan">↻</button>
+      </div>
+    </div>
+    <div class="view-body">
       <div class="queue-list" id="queue-list">
         <div class="queue-empty" id="queue-empty">No pending instructions</div>
       </div>
     </div>
+  </div>
 
-    <!-- Generate -->
-    <div class="generate-section">
-      <div class="label">Generate</div>
-      <div style="display:flex;flex-direction:column;gap:6px;">
-        <textarea id="generate-prompt" rows="3" placeholder="Describe a component or screen to generate — e.g. 'Login screen with email + password fields and a Sign In button'"></textarea>
-        <div class="generate-row">
-          <input type="text" id="generate-page" class="page-input" placeholder="Page name (leave blank for current)" />
-        </div>
-        <input type="text" id="generate-constraints" placeholder="Constraints (optional)" />
-        <div class="btn-row">
-          <button class="submit-btn intent-btn generate-btn" id="generate-btn" style="flex:1;padding:6px;font-size:11px;font-weight:600;">Generate</button>
-        </div>
-        <div class="toast" id="generate-toast"></div>
-      </div>
-    </div>
-
+  <!-- MCP Bridge status bar — bottom, always visible -->
+  <div class="bridge-bar">
+    <div class="status-indicator loading" id="status-dot"></div>
+    <span class="bridge-label">MCP</span>
+    <span class="bridge-state" id="status-state">connecting</span>
   </div>
 
   <script>
@@ -684,10 +869,7 @@
       var WS_PORT_RANGE_END = 9232;
 
       var activeConnections = [];
-      var wsReconnectDelay = 500;
-      var wsMaxReconnectDelay = 5000;
       var wsReconnectAttempts = 0;
-      var wsMaxReconnectAttempts = 50;
       var isScanning = false;
 
       var ws = null;
@@ -735,7 +917,6 @@
         'GET_FILE_INFO': function() { return window.sendPluginCommand('GET_FILE_INFO', {}); },
         'CLEAR_CONSOLE': function() { return Promise.resolve({ cleared: true }); },
         'RELOAD_UI': function() { return window.sendPluginCommand('RELOAD_UI', {}); },
-        // Pipeline write-back — called by design-validator via the MCP bridge
         'PIPELINE_UPDATE_STATUS': function(params) {
           return window.sendPluginCommand('PIPELINE_UPDATE_STATUS', params);
         },
@@ -811,7 +992,7 @@
               attachWsHandlers(testWs, port);
               initializeConnection(testWs, port);
               pending--;
-              if (pending <= 0) { isScanning = false; wsReconnectDelay = 500; wsReconnectAttempts = 0; }
+              if (pending <= 0) { isScanning = false; wsReconnectAttempts = 0; }
             };
 
             testWs.onerror = function() { clearTimeout(timeout); };
@@ -952,7 +1133,6 @@
       const msg = event.data.pluginMessage;
       if (!msg) return;
 
-      // Generic result handler
       const handleResult = (resultType, dataKey) => {
         const request = window.__figmaPendingRequests.get(msg.requestId);
         if (request) {
@@ -971,9 +1151,7 @@
         }
       };
 
-      // Handle message types
       switch (msg.type) {
-        // ── Bridge messages ──────────────────────────────────────────────────
         case 'VARIABLES_DATA':
           window.__figmaVariablesData = msg.data;
           window.__figmaVariablesReady = true;
@@ -1055,17 +1233,7 @@
           break;
 
         case 'PIPELINE_SUBMIT_RESULT':
-          document.getElementById('submit-btn').disabled = false;
-          document.getElementById('submit-btn').textContent = 'Submit';
-          if (msg.success) {
-            showToast('Queued: ' + (pipelineState.nodeName || 'node'), 'success');
-            document.getElementById('instruction').value = '';
-            document.getElementById('constraints').value = '';
-            pipelineSyncSubmit();
-            pipelineScanQueue();
-          } else {
-            showToast(msg.error || 'Submit failed', 'error');
-          }
+          pipelineOnSubmitResult(msg);
           break;
 
         case 'PIPELINE_SCAN_QUEUE_RESULT':
@@ -1074,21 +1242,15 @@
 
         case 'PIPELINE_CLEAR_RESULT':
           renderQueue([]);
-          showToast('Queue cleared', 'success');
           pipelineScanQueue();
           break;
 
         case 'PIPELINE_REMOVE_ITEM_RESULT':
-          if (msg.success) {
-            pipelineScanQueue();
-          }
+          if (msg.success) pipelineScanQueue();
           break;
 
         case 'PIPELINE_CLEAR_COMPLETED_RESULT':
-          if (msg.success) {
-            showToast('Completed items cleared', 'success');
-            pipelineScanQueue();
-          }
+          if (msg.success) pipelineScanQueue();
           break;
 
         case 'PIPELINE_UPDATE_STATUS_RESULT':
@@ -1096,17 +1258,7 @@
           break;
 
         case 'PIPELINE_GENERATE_RESULT':
-          document.getElementById('generate-btn').disabled = false;
-          document.getElementById('generate-btn').textContent = 'Generate';
-          if (msg.success) {
-            showGenerateToast('Queued on page: ' + (msg.data && msg.data.pageName || '?'), 'success');
-            document.getElementById('generate-prompt').value = '';
-            document.getElementById('generate-page').value = '';
-            document.getElementById('generate-constraints').value = '';
-            pipelineScanQueue();
-          } else {
-            showGenerateToast(msg.error || 'Generate failed', 'error');
-          }
+          pipelineOnGenerateResult(msg);
           break;
       }
     };
@@ -1114,7 +1266,14 @@
     // ============================================================================
     // PIPELINE UI STATE
     // ============================================================================
-    var pipelineState = { nodeId: null, nodeName: null, nodeType: null, intent: 'iterate' };
+    var pipelineState = {
+      nodeId: null, nodeName: null, nodeType: null, nodePage: null,
+      // #5 — draft persistence per view
+      draft: { iterate: { instruction: '', constraints: '' }, fix: { instruction: '', constraints: '' } }
+    };
+
+    // #1 — track which view issued the in-flight submit
+    var pendingSubmitView = null;
 
     var NODE_ICONS = {
       FRAME: '▢', SECTION: '⬜', COMPONENT: '◈', COMPONENT_SET: '◈',
@@ -1124,54 +1283,127 @@
 
     function nodeIcon(type) { return NODE_ICONS[type] || '◻'; }
 
-    function pipelineUpdateTarget(nodes, page) {
-      var empty  = document.getElementById('target-empty');
-      var icon   = document.getElementById('target-icon');
-      var info   = document.getElementById('target-info');
-      var nameEl = document.getElementById('target-name');
-      var metaEl = document.getElementById('target-meta');
+    // ── View navigation ────────────────────────────────────────────────────────
+    function showView(name) {
+      document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
+      var el = document.getElementById('view-' + name);
+      if (el) el.classList.add('active');
+    }
 
-      if (!nodes || nodes.length === 0) {
-        pipelineState.nodeId = null;
-        empty.style.display = ''; icon.style.display = 'none'; info.style.display = 'none';
-        pipelineSyncSubmit(); return;
+    function goBack() { showView('home'); }
+
+    // ── Creativity segmented control ───────────────────────────────────────────
+    function getCreativity(viewName) {
+      var active = document.querySelector('#' + viewName + '-creativity-row .creativity-btn.active');
+      return active ? active.dataset.value : 'balanced';
+    }
+
+    function wireCreativityRow(viewName) {
+      var row = document.getElementById(viewName + '-creativity-row');
+      row.addEventListener('click', function(e) {
+        var btn = e.target.closest('.creativity-btn');
+        if (!btn) return;
+        row.querySelectorAll('.creativity-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      });
+    }
+
+    // ── Target display helpers ─────────────────────────────────────────────────
+    function setTargetDisplay(prefix, hasNode) {
+      var emptyEl = document.getElementById(prefix + '-target-empty');
+      var iconEl  = document.getElementById(prefix + '-target-icon');
+      var infoEl  = document.getElementById(prefix + '-target-info');
+      var nameEl  = document.getElementById(prefix + '-target-name');
+      var metaEl  = document.getElementById(prefix + '-target-meta');
+
+      if (!hasNode) {
+        emptyEl.style.display = '';
+        iconEl.style.display  = 'none';
+        infoEl.style.display  = 'none';
+        return;
       }
 
-      var node = nodes[0];
-      pipelineState.nodeId   = node.id;
-      pipelineState.nodeName = node.name;
-      pipelineState.nodeType = node.type;
-
-      empty.style.display = 'none';
-      icon.style.display  = '';
-      info.style.display  = '';
-      icon.textContent    = nodeIcon(node.type);
-      nameEl.textContent  = node.name;
-      metaEl.textContent  = node.type + ' · ' + (page || '')
-        + (nodes.length > 1 ? ' +' + (nodes.length - 1) + ' more' : '');
-
-      pipelineSyncSubmit();
+      emptyEl.style.display = 'none';
+      iconEl.style.display  = '';
+      infoEl.style.display  = '';
+      iconEl.textContent    = nodeIcon(pipelineState.nodeType);
+      nameEl.textContent    = pipelineState.nodeName;
+      metaEl.textContent    = pipelineState.nodeType + (pipelineState.nodePage ? ' · ' + pipelineState.nodePage : '');
     }
 
-    function pipelineSyncSubmit() {
-      var txt = document.getElementById('instruction').value.trim();
-      document.getElementById('submit-btn').disabled = !(pipelineState.nodeId && txt.length > 0);
+    function pipelineUpdateTarget(nodes, page) {
+      if (!nodes || nodes.length === 0) {
+        pipelineState.nodeId   = null;
+        pipelineState.nodeName = null;
+        pipelineState.nodeType = null;
+        pipelineState.nodePage = null;
+      } else {
+        var node = nodes[0];
+        pipelineState.nodeId   = node.id;
+        pipelineState.nodeName = node.name;
+        pipelineState.nodeType = node.type;
+        pipelineState.nodePage = page || null;
+        if (nodes.length > 1) {
+          pipelineState.nodeName = node.name + ' +' + (nodes.length - 1) + ' more';
+        }
+      }
+
+      var hasNode = !!pipelineState.nodeId;
+
+      setTargetDisplay('home', hasNode);
+
+      var btnIterate = document.getElementById('btn-iterate');
+      var btnFix     = document.getElementById('btn-fix');
+      if (hasNode) {
+        btnIterate.classList.remove('disabled');
+        btnFix.classList.remove('disabled');
+      } else {
+        btnIterate.classList.add('disabled');
+        btnFix.classList.add('disabled');
+      }
+
+      var activeView = document.querySelector('.view.active');
+      if (activeView && activeView.id === 'view-iterate') {
+        setTargetDisplay('iterate', hasNode);
+        syncDetailSubmit('iterate');
+      } else if (activeView && activeView.id === 'view-fix') {
+        setTargetDisplay('fix', hasNode);
+        syncDetailSubmit('fix');
+      }
     }
 
-    function showToast(msg, type) {
-      var el = document.getElementById('toast');
-      el.textContent = msg;
-      el.className = 'toast ' + (type || 'success');
+    function syncDetailSubmit(viewName) {
+      var instructionEl = document.getElementById(viewName + '-instruction');
+      var submitBtn     = document.getElementById(viewName + '-submit-btn');
+      var txt = instructionEl ? instructionEl.value.trim() : '';
+      submitBtn.disabled = !(pipelineState.nodeId && txt.length > 0);
+    }
+
+    // ── Inline error helpers ───────────────────────────────────────────────────
+    function showInlineError(viewName, text) {
+      var el = document.getElementById(viewName + '-error');
+      el.textContent = text;
       el.style.display = 'block';
-      setTimeout(function() { el.style.display = 'none'; }, 3500);
     }
 
-    function showGenerateToast(msg, type) {
-      var el = document.getElementById('generate-toast');
-      el.textContent = msg;
-      el.className = 'toast ' + (type || 'success');
-      el.style.display = 'block';
-      setTimeout(function() { el.style.display = 'none'; }, 3500);
+    function clearInlineError(viewName) {
+      var el = document.getElementById(viewName + '-error');
+      el.style.display = 'none';
+    }
+
+    // ── Queue badge ────────────────────────────────────────────────────────────
+    // #2/#7 — count pending + processing from raw status, not derived display status
+    function updateQueueBadge(items) {
+      var badge = document.getElementById('queue-badge');
+      var active = (items || []).filter(function(t) {
+        return t.status === 'pending' || t.status === 'processing';
+      });
+      if (active.length > 0) {
+        badge.textContent = active.length + ' active ›';
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
     }
 
     function pipelineScanQueue() {
@@ -1183,21 +1415,26 @@
     }
 
     function renderQueue(targets) {
-      var list  = document.getElementById('queue-list');
-      var empty = document.getElementById('queue-empty');
+      var list         = document.getElementById('queue-list');
+      var emptyEl      = document.getElementById('queue-empty');
       var clearDoneBtn = document.getElementById('queue-clear-done-btn');
 
-      // Remove all existing queue items (keep the empty placeholder)
-      var items = list.querySelectorAll('.queue-item');
-      items.forEach(function(el) { el.remove(); });
+      list.querySelectorAll('.queue-item').forEach(function(el) { el.remove(); });
+
+      // #8 — always update badge regardless of active view
+      updateQueueBadge(targets);
+
+      // Only render list items when queue view is active
+      var activeView = document.querySelector('.view.active');
+      if (!activeView || activeView.id !== 'view-queue') return;
 
       if (!targets || targets.length === 0) {
-        empty.style.display = '';
+        emptyEl.style.display = '';
         clearDoneBtn.style.display = 'none';
         return;
       }
 
-      empty.style.display = 'none';
+      emptyEl.style.display = 'none';
 
       var hasDone = false;
 
@@ -1206,13 +1443,17 @@
         item.className = 'queue-item';
         item.dataset.nodeId = t.nodeId || '';
 
-        var dot = document.createElement('div');
-        // Derive display status from parityScore when available
         var displayStatus = t.status || 'pending';
         if (t.status === 'done' && t.parityScore !== undefined) {
-          if (t.parityScore >= 0.85)      displayStatus = 'done-validated';
-          else if (t.parityScore < 0.70)  displayStatus = 'failed-parity';
+          if (t.parityScore >= 0.85)     displayStatus = 'done-validated';
+          else if (t.parityScore < 0.70) displayStatus = 'failed-parity';
         }
+
+        if (displayStatus === 'processing') item.classList.add('processing');
+        if (displayStatus === 'failed')     item.classList.add('failed');
+        if (t.status === 'failed')          item.title = t.errorMessage || '';
+
+        var dot = document.createElement('div');
         dot.className = 'queue-status-dot ' + displayStatus;
 
         var infoDiv = document.createElement('div');
@@ -1229,6 +1470,10 @@
           nameDiv.appendChild(badge);
         }
 
+        var statusTextDiv = document.createElement('div');
+        statusTextDiv.className = 'queue-item-status-text';
+        statusTextDiv.textContent = displayStatus.replace(/-/g, ' ');
+
         var metaDiv = document.createElement('div');
         metaDiv.className = 'queue-item-meta';
         var parts = [];
@@ -1238,6 +1483,7 @@
         metaDiv.textContent = parts.join(' · ');
 
         infoDiv.appendChild(nameDiv);
+        infoDiv.appendChild(statusTextDiv);
         infoDiv.appendChild(metaDiv);
 
         var removeBtn = document.createElement('button');
@@ -1263,53 +1509,184 @@
       clearDoneBtn.style.display = hasDone ? '' : 'none';
     }
 
-    // Intent pills
-    document.getElementById('intent-row').addEventListener('click', function(e) {
-      var btn = e.target.closest('.intent-btn');
-      if (!btn) return;
-      document.querySelectorAll('.intent-btn').forEach(function(b) { b.classList.remove('active'); });
-      btn.classList.add('active');
-      pipelineState.intent = btn.dataset.intent;
+    // ── Submit result handlers ─────────────────────────────────────────────────
+    // #1 — use tracked pendingSubmitView, not current active view
+    function pipelineOnSubmitResult(msg) {
+      var viewName = pendingSubmitView;
+      pendingSubmitView = null;
+
+      if (viewName === 'iterate' || viewName === 'fix') {
+        var submitBtn = document.getElementById(viewName + '-submit-btn');
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Submit';
+
+        if (msg.success) {
+          clearInlineError(viewName);
+          // Clear draft on success
+          pipelineState.draft[viewName].instruction = '';
+          pipelineState.draft[viewName].constraints = '';
+          document.getElementById(viewName + '-instruction').value = '';
+          document.getElementById(viewName + '-constraints').value = '';
+          pipelineScanQueue();
+          showView('queue');
+        } else {
+          // #6 — inline error in detail view
+          showInlineError(viewName, msg.error || 'Submit failed');
+          // Re-enable so user can retry
+          syncDetailSubmit(viewName);
+        }
+      }
+    }
+
+    function pipelineOnGenerateResult(msg) {
+      var generateBtn = document.getElementById('generate-btn');
+      generateBtn.disabled = false;
+      generateBtn.textContent = 'Generate';
+      syncGenerateBtn();
+
+      if (msg.success) {
+        clearInlineError('generate');
+        document.getElementById('generate-prompt').value = '';
+        document.getElementById('generate-page').value = '';
+        document.getElementById('generate-constraints').value = '';
+        pipelineScanQueue();
+        showView('queue');
+      } else {
+        showInlineError('generate', msg.error || 'Generate failed');
+      }
+    }
+
+    // ── Generate button enable/disable (#3) ────────────────────────────────────
+    function syncGenerateBtn() {
+      var prompt = document.getElementById('generate-prompt').value.trim();
+      document.getElementById('generate-btn').disabled = prompt.length === 0;
+    }
+
+    // ── Home buttons ───────────────────────────────────────────────────────────
+    document.getElementById('btn-iterate').addEventListener('click', function() {
+      if (this.classList.contains('disabled')) return;
+      // #5 — restore draft
+      document.getElementById('iterate-instruction').value = pipelineState.draft.iterate.instruction;
+      document.getElementById('iterate-constraints').value = pipelineState.draft.iterate.constraints;
+      setTargetDisplay('iterate', true);
+      syncDetailSubmit('iterate');
+      clearInlineError('iterate');
+      showView('iterate');
     });
 
-    // Instruction input
-    document.getElementById('instruction').addEventListener('input', function() {
-      pipelineSyncSubmit();
+    document.getElementById('btn-fix').addEventListener('click', function() {
+      if (this.classList.contains('disabled')) return;
+      // #5 — restore draft
+      document.getElementById('fix-instruction').value = pipelineState.draft.fix.instruction;
+      document.getElementById('fix-constraints').value = pipelineState.draft.fix.constraints;
+      setTargetDisplay('fix', true);
+      syncDetailSubmit('fix');
+      clearInlineError('fix');
+      showView('fix');
     });
 
-    // Submit
-    document.getElementById('submit-btn').addEventListener('click', function() {
-      var instruction = document.getElementById('instruction').value.trim();
-      var constraints = document.getElementById('constraints').value.trim() || null;
+    document.getElementById('btn-generate').addEventListener('click', function() {
+      clearInlineError('generate');
+      showView('generate');
+    });
+
+    document.getElementById('queue-badge').addEventListener('click', function(e) {
+      e.preventDefault();
+      pipelineScanQueue();
+      showView('queue');
+    });
+
+    // ── Back buttons ───────────────────────────────────────────────────────────
+    document.getElementById('back-from-iterate').addEventListener('click', goBack);
+    document.getElementById('back-from-fix').addEventListener('click', goBack);
+    document.getElementById('back-from-generate').addEventListener('click', goBack);
+    document.getElementById('back-from-queue').addEventListener('click', goBack);
+
+    // ── Iterate view ───────────────────────────────────────────────────────────
+    wireCreativityRow('iterate');
+
+    document.getElementById('iterate-instruction').addEventListener('input', function() {
+      pipelineState.draft.iterate.instruction = this.value; // #5
+      syncDetailSubmit('iterate');
+    });
+
+    document.getElementById('iterate-constraints').addEventListener('input', function() {
+      pipelineState.draft.iterate.constraints = this.value; // #5
+    });
+
+    document.getElementById('iterate-submit-btn').addEventListener('click', function() {
+      var instruction = document.getElementById('iterate-instruction').value.trim();
+      var constraints = document.getElementById('iterate-constraints').value.trim() || null;
       if (!pipelineState.nodeId || !instruction) return;
-      var btn = document.getElementById('submit-btn');
-      btn.disabled = true;
-      btn.textContent = 'Submitting…';
+      clearInlineError('iterate');
+      pendingSubmitView = 'iterate'; // #1
+      this.disabled = true;
+      this.textContent = 'Submitting…';
       parent.postMessage({ pluginMessage: {
         type:        'PIPELINE_SUBMIT',
         nodeId:      pipelineState.nodeId,
         instruction: instruction,
-        intent:      pipelineState.intent,
-        constraints: constraints
+        intent:      'iterate',
+        constraints: constraints,
+        creativity:  getCreativity('iterate') // #19
       }}, '*');
     });
 
-    // Queue toggle — only toggle on the header background, not on buttons inside it
-    var queueVisible = true;
-    document.getElementById('queue-header').addEventListener('click', function(e) {
-      if (e.target.closest('button')) return;
-      queueVisible = !queueVisible;
-      document.getElementById('queue-list').style.display = queueVisible ? '' : 'none';
-      document.getElementById('queue-toggle').textContent = queueVisible ? '▾ hide' : '▸ show';
+    // ── Fix view ───────────────────────────────────────────────────────────────
+    wireCreativityRow('fix');
+
+    document.getElementById('fix-instruction').addEventListener('input', function() {
+      pipelineState.draft.fix.instruction = this.value; // #5
+      syncDetailSubmit('fix');
     });
 
-    document.getElementById('queue-toggle').addEventListener('click', function(e) {
-      e.stopPropagation();
-      queueVisible = !queueVisible;
-      document.getElementById('queue-list').style.display = queueVisible ? '' : 'none';
-      this.textContent = queueVisible ? '▾ hide' : '▸ show';
+    document.getElementById('fix-constraints').addEventListener('input', function() {
+      pipelineState.draft.fix.constraints = this.value; // #5
     });
 
+    document.getElementById('fix-submit-btn').addEventListener('click', function() {
+      var instruction = document.getElementById('fix-instruction').value.trim();
+      var constraints = document.getElementById('fix-constraints').value.trim() || null;
+      if (!pipelineState.nodeId || !instruction) return;
+      clearInlineError('fix');
+      pendingSubmitView = 'fix'; // #1
+      this.disabled = true;
+      this.textContent = 'Submitting…';
+      parent.postMessage({ pluginMessage: {
+        type:        'PIPELINE_SUBMIT',
+        nodeId:      pipelineState.nodeId,
+        instruction: instruction,
+        intent:      'fix',
+        constraints: constraints,
+        creativity:  getCreativity('fix') // #19
+      }}, '*');
+    });
+
+    // ── Generate view ──────────────────────────────────────────────────────────
+    wireCreativityRow('generate');
+
+    // #3 — disable Generate button when prompt is empty
+    document.getElementById('generate-prompt').addEventListener('input', syncGenerateBtn);
+
+    document.getElementById('generate-btn').addEventListener('click', function() {
+      var prompt = document.getElementById('generate-prompt').value.trim();
+      if (!prompt) return;
+      var pageName    = document.getElementById('generate-page').value.trim();
+      var constraints = document.getElementById('generate-constraints').value.trim() || null;
+      clearInlineError('generate');
+      this.disabled = true;
+      this.textContent = 'Queuing…';
+      parent.postMessage({ pluginMessage: {
+        type:        'PIPELINE_GENERATE',
+        prompt:      prompt,
+        constraints: constraints,
+        pageCreate:  !!pageName,
+        pageName:    pageName || null,
+        creativity:  getCreativity('generate') // #19
+      }}, '*');
+    });
+
+    // ── Queue view ─────────────────────────────────────────────────────────────
     document.getElementById('queue-clear-done-btn').addEventListener('click', function(e) {
       e.stopPropagation();
       parent.postMessage({ pluginMessage: { type: 'PIPELINE_CLEAR_COMPLETED' } }, '*');
@@ -1320,29 +1697,11 @@
       pipelineForceRescan();
     });
 
-    // Generate button
-    document.getElementById('generate-btn').addEventListener('click', function() {
-      var prompt = document.getElementById('generate-prompt').value.trim();
-      if (!prompt) return;
-      var pageName = document.getElementById('generate-page').value.trim();
-      var constraints = document.getElementById('generate-constraints').value.trim() || null;
-      var btn = document.getElementById('generate-btn');
-      btn.disabled = true;
-      btn.textContent = 'Queuing…';
-      parent.postMessage({ pluginMessage: {
-        type:        'PIPELINE_GENERATE',
-        prompt:      prompt,
-        constraints: constraints,
-        pageCreate:  !!pageName,
-        pageName:    pageName || null
-      }}, '*');
-    });
-
-    // Load initial state on open
+    // ── Initialize ─────────────────────────────────────────────────────────────
     parent.postMessage({ pluginMessage: { type: 'PIPELINE_INIT_REQUEST' } }, '*');
     pipelineScanQueue();
 
-    // Auto-refresh queue every 5s so done/failed status from pipeline runs appears
+    // #8 — background poll always runs; renderQueue only draws list when queue view active
     setInterval(pipelineScanQueue, 5000);
   </script>
 </body>
