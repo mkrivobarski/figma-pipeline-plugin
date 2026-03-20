@@ -224,8 +224,23 @@
     .queue-status-dot.pending           { background: #f5a623; }
     .queue-status-dot.processing        { background: #1e6fe0; animation: pulse 1.2s infinite; }
     .queue-status-dot.done              { background: #18a957; }
+    .queue-status-dot.done-validated    { background: #22c55e; box-shadow: 0 0 4px rgba(34,197,94,0.5); }
     .queue-status-dot.done-with-warnings{ background: #f5a623; }
+    .queue-status-dot.failed-parity     { background: #f59e0b; }
     .queue-status-dot.failed            { background: #f24822; }
+
+    .semantic-badge {
+      display: inline-block;
+      margin-left: 4px;
+      padding: 1px 3px;
+      font-size: 8px;
+      font-weight: 700;
+      border-radius: 2px;
+      background: rgba(99,102,241,0.18);
+      color: #818cf8;
+      vertical-align: middle;
+      letter-spacing: 0.3px;
+    }
 
     .queue-item-info { flex: 1; overflow: hidden; }
     .queue-item-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 10px; }
@@ -279,6 +294,25 @@
       .queue-item-remove { color: #ccc; }
       .queue-item-remove:hover { color: #f24822; }
     }
+
+    /* ── Generate panel ───────────────────────────────────────────────────── */
+    .generate-section {
+      border-top: 1px solid var(--figma-color-border, #3c3c3c);
+      padding-top: 9px;
+    }
+
+    .generate-row { display: flex; gap: 6px; align-items: flex-end; }
+
+    .page-input {
+      flex: 1;
+    }
+
+    .intent-btn.generate-btn {
+      background: rgba(99,102,241,0.12);
+      border-color: rgba(99,102,241,0.3);
+      color: #818cf8;
+    }
+    .intent-btn.generate-btn:hover { background: rgba(99,102,241,0.22); color: #a5b4fc; }
   </style>
 </head>
 <body>
@@ -343,11 +377,28 @@
         <div class="label" style="margin-bottom:0">Queue</div>
         <div style="display:flex;gap:10px;align-items:center">
           <button class="queue-clear-btn" id="queue-clear-done-btn" style="display:none">clear done</button>
+          <button class="queue-clear-btn" id="queue-refresh-btn" title="Full rescan">↻</button>
           <button class="queue-toggle" id="queue-toggle">▾ hide</button>
         </div>
       </div>
       <div class="queue-list" id="queue-list">
         <div class="queue-empty" id="queue-empty">No pending instructions</div>
+      </div>
+    </div>
+
+    <!-- Generate -->
+    <div class="generate-section">
+      <div class="label">Generate</div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <textarea id="generate-prompt" rows="3" placeholder="Describe a component or screen to generate — e.g. 'Login screen with email + password fields and a Sign In button'"></textarea>
+        <div class="generate-row">
+          <input type="text" id="generate-page" class="page-input" placeholder="Page name (leave blank for current)" />
+        </div>
+        <input type="text" id="generate-constraints" placeholder="Constraints (optional)" />
+        <div class="btn-row">
+          <button class="submit-btn intent-btn generate-btn" id="generate-btn" style="flex:1;padding:6px;font-size:11px;font-weight:600;">Generate</button>
+        </div>
+        <div class="toast" id="generate-toast"></div>
       </div>
     </div>
 
@@ -683,7 +734,17 @@
         },
         'GET_FILE_INFO': function() { return window.sendPluginCommand('GET_FILE_INFO', {}); },
         'CLEAR_CONSOLE': function() { return Promise.resolve({ cleared: true }); },
-        'RELOAD_UI': function() { return window.sendPluginCommand('RELOAD_UI', {}); }
+        'RELOAD_UI': function() { return window.sendPluginCommand('RELOAD_UI', {}); },
+        // Pipeline write-back — called by design-validator via the MCP bridge
+        'PIPELINE_UPDATE_STATUS': function(params) {
+          return window.sendPluginCommand('PIPELINE_UPDATE_STATUS', params);
+        },
+        'PIPELINE_GET_SEMANTIC_DATA': function(params) {
+          return window.sendPluginCommand('PIPELINE_GET_SEMANTIC_DATA', { nodeId: params.nodeId });
+        },
+        'PIPELINE_GENERATE': function(params) {
+          return window.sendPluginCommand('PIPELINE_GENERATE', params);
+        }
       };
 
       function isPortConnected(port) {
@@ -1029,6 +1090,24 @@
             pipelineScanQueue();
           }
           break;
+
+        case 'PIPELINE_UPDATE_STATUS_RESULT':
+          if (msg.success) pipelineScanQueue();
+          break;
+
+        case 'PIPELINE_GENERATE_RESULT':
+          document.getElementById('generate-btn').disabled = false;
+          document.getElementById('generate-btn').textContent = 'Generate';
+          if (msg.success) {
+            showGenerateToast('Queued on page: ' + (msg.data && msg.data.pageName || '?'), 'success');
+            document.getElementById('generate-prompt').value = '';
+            document.getElementById('generate-page').value = '';
+            document.getElementById('generate-constraints').value = '';
+            pipelineScanQueue();
+          } else {
+            showGenerateToast(msg.error || 'Generate failed', 'error');
+          }
+          break;
       }
     };
 
@@ -1087,8 +1166,20 @@
       setTimeout(function() { el.style.display = 'none'; }, 3500);
     }
 
+    function showGenerateToast(msg, type) {
+      var el = document.getElementById('generate-toast');
+      el.textContent = msg;
+      el.className = 'toast ' + (type || 'success');
+      el.style.display = 'block';
+      setTimeout(function() { el.style.display = 'none'; }, 3500);
+    }
+
     function pipelineScanQueue() {
       parent.postMessage({ pluginMessage: { type: 'PIPELINE_SCAN_QUEUE' } }, '*');
+    }
+
+    function pipelineForceRescan() {
+      parent.postMessage({ pluginMessage: { type: 'PIPELINE_SCAN_QUEUE', forceRescan: true } }, '*');
     }
 
     function renderQueue(targets) {
@@ -1116,7 +1207,13 @@
         item.dataset.nodeId = t.nodeId || '';
 
         var dot = document.createElement('div');
-        dot.className = 'queue-status-dot ' + (t.status || 'pending');
+        // Derive display status from parityScore when available
+        var displayStatus = t.status || 'pending';
+        if (t.status === 'done' && t.parityScore !== undefined) {
+          if (t.parityScore >= 0.85)      displayStatus = 'done-validated';
+          else if (t.parityScore < 0.70)  displayStatus = 'failed-parity';
+        }
+        dot.className = 'queue-status-dot ' + displayStatus;
 
         var infoDiv = document.createElement('div');
         infoDiv.className = 'queue-item-info';
@@ -1124,12 +1221,20 @@
         var nameDiv = document.createElement('div');
         nameDiv.className = 'queue-item-name';
         nameDiv.textContent = t.nodeName || t.nodeId;
+        if (t.hasSemanticAnnotation) {
+          var badge = document.createElement('span');
+          badge.className = 'semantic-badge';
+          badge.title = 'Has semantic-figma annotations — eligible for update_scene patch';
+          badge.textContent = 'SF';
+          nameDiv.appendChild(badge);
+        }
 
         var metaDiv = document.createElement('div');
         metaDiv.className = 'queue-item-meta';
         var parts = [];
         if (t.intent) parts.push(t.intent);
         if (t.instruction) parts.push(t.instruction.length > 40 ? t.instruction.slice(0, 40) + '…' : t.instruction);
+        if (t.parityScore !== undefined) parts.push('parity ' + Math.round(t.parityScore * 100) + '%');
         metaDiv.textContent = parts.join(' · ');
 
         infoDiv.appendChild(nameDiv);
@@ -1208,6 +1313,29 @@
     document.getElementById('queue-clear-done-btn').addEventListener('click', function(e) {
       e.stopPropagation();
       parent.postMessage({ pluginMessage: { type: 'PIPELINE_CLEAR_COMPLETED' } }, '*');
+    });
+
+    document.getElementById('queue-refresh-btn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      pipelineForceRescan();
+    });
+
+    // Generate button
+    document.getElementById('generate-btn').addEventListener('click', function() {
+      var prompt = document.getElementById('generate-prompt').value.trim();
+      if (!prompt) return;
+      var pageName = document.getElementById('generate-page').value.trim();
+      var constraints = document.getElementById('generate-constraints').value.trim() || null;
+      var btn = document.getElementById('generate-btn');
+      btn.disabled = true;
+      btn.textContent = 'Queuing…';
+      parent.postMessage({ pluginMessage: {
+        type:        'PIPELINE_GENERATE',
+        prompt:      prompt,
+        constraints: constraints,
+        pageCreate:  !!pageName,
+        pageName:    pageName || null
+      }}, '*');
     });
 
     // Load initial state on open

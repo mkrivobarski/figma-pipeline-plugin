@@ -19,7 +19,7 @@ function debugLog() {
 }
 
 // Show minimal UI - compact status indicator
-figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: true });
+figma.showUI(__html__, { width: 320, height: 560, visible: true, themeColors: true });
 
 // ============================================================================
 // CONSOLE CAPTURE — Intercept console.* in the QuickJS sandbox and forward
@@ -74,8 +74,10 @@ figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: tr
   }
 })();
 
-// Immediately fetch and send variables data to UI
-(async () => {
+// Defer initial variable fetch to avoid blocking the QuickJS thread at startup.
+// A 500ms delay lets Figma finish rendering the current page before we hit the
+// variables API (which can be slow on files with large token systems).
+setTimeout(async function() {
   try {
     debugLog('🌉 [Desktop Bridge] Fetching variables...');
 
@@ -127,7 +129,7 @@ figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: tr
       error: error.message || String(error)
     });
   }
-})();
+}, 500);
 
 // Helper function to serialize a variable for response
 function serializeVariable(v) {
@@ -350,7 +352,7 @@ async function handleExecuteCode(msg) {
       debugLog('🌉 [Desktop Bridge] Wrapped code for eval');
 
       // Execute with timeout
-      var timeoutMs = msg.timeout || 5000;
+      var timeoutMs = msg.timeout || 30000;
       var timeoutPromise = new Promise(function(_, reject) {
         setTimeout(function() {
           reject(new Error('Execution timed out after ' + timeoutMs + 'ms'));
@@ -2234,6 +2236,63 @@ async function handleSetInstanceProperties(msg) {
 // PIPELINE HANDLERS — appended extension for design pipeline agent system
 // ============================================================================
 
+// Track whether loadAllPagesAsync has already been called this session.
+// Each subsequent call is a no-op in the Figma API but still takes a round-trip;
+// avoiding it cuts the cost of every PIPELINE_SCAN_QUEUE poll.
+var _pipelinePagesLoaded = false;
+
+async function _ensurePagesLoaded() {
+  if (_pipelinePagesLoaded) return;
+  await figma.loadAllPagesAsync();
+  _pipelinePagesLoaded = true;
+}
+
+// ============================================================================
+// PIPELINE QUEUE INDEX — in-memory map of nodeId → entry
+//
+// The core lag source was page.findAll(getSharedPluginData) running on a 5s
+// interval. findAll walks every node in every page synchronously on Figma's
+// main thread — on large files with thousands of nodes this causes visible
+// freezes. This index eliminates that full-tree scan from the hot path.
+//
+// Strategy:
+//   - _pipelineIndexReady = false on startup
+//   - First PIPELINE_SCAN_QUEUE call triggers a one-time full scan to populate
+//     the index, then sets _pipelineIndexReady = true
+//   - All subsequent PIPELINE_SCAN_QUEUE calls read from the index (O(n) over
+//     queue items only, not the whole document)
+//   - handlePipelineSubmit, handlePipelineRemoveItem, handlePipelineClear,
+//     handlePipelineUpdateStatus all update the index directly
+//   - handlePipelineClearCompleted removes completed entries from the index
+//   - PIPELINE_SCAN_QUEUE with { forceRescan: true } re-runs the full scan
+//     (used by UI refresh button and after pipeline agent writes back status
+//     directly to sharedPluginData without going through these handlers)
+// ============================================================================
+var _pipelineIndex = {};     // nodeId → payload object
+var _pipelineIndexReady = false;
+
+async function _buildPipelineIndex() {
+  await _ensurePagesLoaded();
+  var index = {};
+  for (var pi = 0; pi < figma.root.children.length; pi++) {
+    var page = figma.root.children[pi];
+    var nodes = page.findAll(function(n) {
+      try { return !!n.getSharedPluginData('pipeline', 'instruction'); } catch(e) { return false; }
+    });
+    for (var ni = 0; ni < nodes.length; ni++) {
+      var raw = nodes[ni].getSharedPluginData('pipeline', 'instruction');
+      if (!raw) continue;
+      try {
+        var entry = JSON.parse(raw);
+        entry.hasSemanticAnnotation = !!(nodes[ni].getPluginData && nodes[ni].getPluginData('semantic-figma'));
+        index[nodes[ni].id] = entry;
+      } catch(e) { /* skip malformed */ }
+    }
+  }
+  _pipelineIndex = index;
+  _pipelineIndexReady = true;
+}
+
 async function handlePipelineSubmit(msg) {
   try {
     var targetNode = null;
@@ -2259,6 +2318,7 @@ async function handlePipelineSubmit(msg) {
       pageName:    figma.currentPage.name
     };
     targetNode.setSharedPluginData('pipeline', 'instruction', JSON.stringify(payload));
+    _pipelineIndex[targetNode.id] = Object.assign({}, payload, { hasSemanticAnnotation: false });
     figma.ui.postMessage({
       type: 'PIPELINE_SUBMIT_RESULT',
       requestId: msg.requestId,
@@ -2283,22 +2343,17 @@ async function handlePipelineSubmit(msg) {
 
 async function handlePipelineScanQueue(msg) {
   try {
-    await figma.loadAllPagesAsync();
+    // First call or explicit rescan: build the index via full tree walk.
+    // Subsequent calls read from the in-memory index — no findAll, no main-thread block.
+    if (!_pipelineIndexReady || msg.forceRescan) {
+      await _buildPipelineIndex();
+    }
     var items = [];
-    for (var pi = 0; pi < figma.root.children.length; pi++) {
-      var page = figma.root.children[pi];
-      var nodes = page.findAll(function (n) {
-        try { return !!n.getSharedPluginData('pipeline', 'instruction'); } catch (e) { return false; }
-      });
-      for (var ni = 0; ni < nodes.length; ni++) {
-        var raw = nodes[ni].getSharedPluginData('pipeline', 'instruction');
-        if (!raw) continue;
-        try {
-          var entry = JSON.parse(raw);
-          if (!msg.statusFilter || msg.statusFilter === 'all' || entry.status === msg.statusFilter) {
-            items.push(entry);
-          }
-        } catch (e) { /* skip malformed */ }
+    var ids = Object.keys(_pipelineIndex);
+    for (var i = 0; i < ids.length; i++) {
+      var entry = _pipelineIndex[ids[i]];
+      if (!msg.statusFilter || msg.statusFilter === 'all' || entry.status === msg.statusFilter) {
+        items.push(entry);
       }
     }
     figma.ui.postMessage({
@@ -2347,6 +2402,7 @@ async function handlePipelineRemoveItem(msg) {
     var removeNode = await figma.getNodeByIdAsync(msg.nodeId);
     if (!removeNode) throw new Error('Node not found: ' + msg.nodeId);
     removeNode.setSharedPluginData('pipeline', 'instruction', '');
+    delete _pipelineIndex[msg.nodeId];
     figma.ui.postMessage({
       type: 'PIPELINE_REMOVE_ITEM_RESULT',
       requestId: msg.requestId,
@@ -2365,24 +2421,25 @@ async function handlePipelineRemoveItem(msg) {
 
 async function handlePipelineClearCompleted(msg) {
   try {
-    await figma.loadAllPagesAsync();
+    // Use the in-memory index — no findAll needed.
+    // For each completed entry, look up the node by ID and clear its sharedPluginData.
     var cleared = 0;
-    for (var pi = 0; pi < figma.root.children.length; pi++) {
-      var page = figma.root.children[pi];
-      var nodes = page.findAll(function (n) {
-        try { return !!n.getSharedPluginData('pipeline', 'instruction'); } catch (e) { return false; }
-      });
-      for (var ni = 0; ni < nodes.length; ni++) {
-        var raw = nodes[ni].getSharedPluginData('pipeline', 'instruction');
-        if (!raw) continue;
-        try {
-          var entry = JSON.parse(raw);
-          if (entry.status === 'done' || entry.status === 'failed' || entry.status === 'done-with-warnings') {
-            nodes[ni].setSharedPluginData('pipeline', 'instruction', '');
-            cleared++;
-          }
-        } catch (e) { /* skip malformed */ }
+    var completedStatuses = { 'done': true, 'failed': true, 'done-with-warnings': true, 'done-validated': true, 'failed-parity': true };
+    var idsToRemove = [];
+    var ids = Object.keys(_pipelineIndex);
+    for (var i = 0; i < ids.length; i++) {
+      var entry = _pipelineIndex[ids[i]];
+      if (completedStatuses[entry.status]) {
+        idsToRemove.push(ids[i]);
       }
+    }
+    for (var j = 0; j < idsToRemove.length; j++) {
+      try {
+        var n = await figma.getNodeByIdAsync(idsToRemove[j]);
+        if (n) n.setSharedPluginData('pipeline', 'instruction', '');
+        delete _pipelineIndex[idsToRemove[j]];
+        cleared++;
+      } catch(e) { /* node may have been deleted */ delete _pipelineIndex[idsToRemove[j]]; }
     }
     figma.ui.postMessage({
       type: 'PIPELINE_CLEAR_COMPLETED_RESULT',
@@ -2411,6 +2468,123 @@ function handlePipelineInitRequest(msg) {
     type: 'PIPELINE_INIT',
     data: { nodes: nodes, page: figma.currentPage.name }
   });
+}
+
+async function handlePipelineUpdateStatus(msg) {
+  // msg: { nodeId, status, validationSummary?, parityScore? }
+  try {
+    var node = await figma.getNodeByIdAsync(msg.nodeId);
+    if (!node) throw new Error('Node not found: ' + msg.nodeId);
+    var raw = node.getSharedPluginData('pipeline', 'instruction');
+    if (!raw) throw new Error('No pipeline instruction on node: ' + msg.nodeId);
+    var entry = JSON.parse(raw);
+    entry.status = msg.status;
+    if (msg.validationSummary !== undefined) entry.validationSummary = msg.validationSummary;
+    if (msg.parityScore !== undefined) entry.parityScore = msg.parityScore;
+    entry.updatedAt = Date.now();
+    node.setSharedPluginData('pipeline', 'instruction', JSON.stringify(entry));
+    _pipelineIndex[msg.nodeId] = entry;
+    figma.ui.postMessage({ type: 'PIPELINE_UPDATE_STATUS_RESULT', requestId: msg.requestId, success: true });
+  } catch (err) {
+    figma.ui.postMessage({
+      type: 'PIPELINE_UPDATE_STATUS_RESULT',
+      requestId: msg.requestId,
+      success: false,
+      error: err && err.message ? err.message : String(err)
+    });
+  }
+}
+
+async function handlePipelineGetSemanticData(msg) {
+  // msg: { nodeId }
+  try {
+    var node = await figma.getNodeByIdAsync(msg.nodeId);
+    if (!node) throw new Error('Node not found: ' + msg.nodeId);
+    var annotation = node.getPluginData('semantic-figma') || null;
+    if (annotation) { try { annotation = JSON.parse(annotation); } catch(e) {} }
+    var children = [];
+    if ('children' in node) {
+      for (var i = 0; i < Math.min(node.children.length, 30); i++) {
+        var child = node.children[i];
+        var childAnn = child.getPluginData('semantic-figma') || null;
+        if (childAnn) { try { childAnn = JSON.parse(childAnn); } catch(e) {} }
+        children.push({ id: child.id, name: child.name, type: child.type, semanticData: childAnn });
+      }
+    }
+    figma.ui.postMessage({
+      type: 'PIPELINE_GET_SEMANTIC_DATA_RESULT',
+      requestId: msg.requestId,
+      success: true,
+      data: { nodeId: node.id, nodeName: node.name, semanticData: annotation, children: children }
+    });
+  } catch (err) {
+    figma.ui.postMessage({
+      type: 'PIPELINE_GET_SEMANTIC_DATA_RESULT',
+      requestId: msg.requestId,
+      success: false,
+      error: err && err.message ? err.message : String(err)
+    });
+  }
+}
+
+async function handlePipelineGenerate(msg) {
+  // msg: { prompt, pageId?, pageCreate?, pageName?, canvasOrigin? }
+  // Writes a 'generate' instruction into sharedPluginData on the target page frame
+  // (or a sentinel node on the page) so annotation-scanner / pipeline-intake picks it up.
+  try {
+    if (!msg.prompt || !msg.prompt.trim()) throw new Error('prompt is required');
+
+    // Resolve or create the target page
+    var targetPage = null;
+    if (msg.pageId) {
+      for (var pi = 0; pi < figma.root.children.length; pi++) {
+        if (figma.root.children[pi].id === msg.pageId) { targetPage = figma.root.children[pi]; break; }
+      }
+      if (!targetPage) throw new Error('Page not found: ' + msg.pageId);
+    } else if (msg.pageCreate && msg.pageName) {
+      // Check for existing page with same name first
+      for (var pi = 0; pi < figma.root.children.length; pi++) {
+        if (figma.root.children[pi].name === msg.pageName) { targetPage = figma.root.children[pi]; break; }
+      }
+      if (!targetPage) {
+        targetPage = figma.createPage();
+        targetPage.name = msg.pageName;
+      }
+    } else {
+      targetPage = figma.currentPage;
+    }
+
+    // Write the generate instruction onto the page itself (pages support sharedPluginData)
+    var payload = {
+      instruction:   msg.prompt.trim(),
+      intent:        'generate',
+      constraints:   msg.constraints || null,
+      scope:         'page',
+      submittedAt:   Date.now(),
+      status:        'pending',
+      nodeId:        targetPage.id,
+      nodeName:      targetPage.name,
+      nodeType:      'PAGE',
+      pageName:      targetPage.name,
+      canvasOrigin:  msg.canvasOrigin || { x: 0, y: 0 }
+    };
+    targetPage.setSharedPluginData('pipeline', 'instruction', JSON.stringify(payload));
+    _pipelineIndex[targetPage.id] = Object.assign({}, payload, { hasSemanticAnnotation: false });
+
+    figma.ui.postMessage({
+      type: 'PIPELINE_GENERATE_RESULT',
+      requestId: msg.requestId,
+      success: true,
+      data: { pageId: targetPage.id, pageName: targetPage.name, submittedAt: payload.submittedAt }
+    });
+  } catch (err) {
+    figma.ui.postMessage({
+      type: 'PIPELINE_GENERATE_RESULT',
+      requestId: msg.requestId,
+      success: false,
+      error: err && err.message ? err.message : String(err)
+    });
+  }
 }
 
 // ============================================================================
@@ -2458,6 +2632,9 @@ var messageHandlers = {
   PIPELINE_REMOVE_ITEM:       handlePipelineRemoveItem,
   PIPELINE_CLEAR_COMPLETED:   handlePipelineClearCompleted,
   PIPELINE_INIT_REQUEST:      handlePipelineInitRequest,
+  PIPELINE_UPDATE_STATUS:     handlePipelineUpdateStatus,
+  PIPELINE_GET_SEMANTIC_DATA: handlePipelineGetSemanticData,
+  PIPELINE_GENERATE:          handlePipelineGenerate,
 };
 
 // Single unified onmessage handler — dispatches to named handler via table
@@ -2475,6 +2652,7 @@ figma.ui.onmessage = async function (msg) {
 // Requires figma.loadAllPagesAsync() in dynamic-page mode before registering.
 // ============================================================================
 figma.loadAllPagesAsync().then(function() {
+  _pipelinePagesLoaded = true;
   var _docChangeTimer = null;
   var _pendingDocChange = { hasStyleChanges: false, hasNodeChanges: false, changedNodeIds: [], changeCount: 0 };
 
@@ -2486,7 +2664,7 @@ figma.loadAllPagesAsync().then(function() {
         _pendingDocChange.hasStyleChanges = true;
       } else if (change.type === 'CREATE' || change.type === 'DELETE' || change.type === 'PROPERTY_CHANGE') {
         _pendingDocChange.hasNodeChanges = true;
-        if (change.id && _pendingDocChange.changedNodeIds.length < 50) {
+        if (change.id && _pendingDocChange.changedNodeIds.length < 10) {
           _pendingDocChange.changedNodeIds.push(change.id);
         }
       }
@@ -2496,6 +2674,8 @@ figma.loadAllPagesAsync().then(function() {
     if (!(_pendingDocChange.hasStyleChanges || _pendingDocChange.hasNodeChanges)) return;
 
     if (_docChangeTimer !== null) return;
+    // 1000ms debounce: pipeline execution creates hundreds of nodes in bursts;
+    // a shorter window fires postMessages on every batch and blocks the QuickJS thread.
     _docChangeTimer = setTimeout(function () {
       _docChangeTimer = null;
       var payload = {
@@ -2508,7 +2688,7 @@ figma.loadAllPagesAsync().then(function() {
       // Reset accumulator
       _pendingDocChange = { hasStyleChanges: false, hasNodeChanges: false, changedNodeIds: [], changeCount: 0 };
       figma.ui.postMessage({ type: 'DOCUMENT_CHANGE', data: payload });
-    }, 300);
+    }, 1000);
   });
   // Selection change listener — merged with pipeline listener below; registered once outside this block
 
@@ -2554,6 +2734,9 @@ figma.on('selectionchange', function () {
       nodes.push({ id: n.id, name: n.name, type: n.type, width: n.width, height: n.height });
     }
     var payload = { nodes: nodes, count: selection.length, page: figma.currentPage.name, timestamp: Date.now() };
+    // Send a single message with both type tags — consumers filter on what they need.
+    // Previously two postMessages were sent on every selection change, doubling the
+    // IPC overhead through the bridge on every click.
     figma.ui.postMessage({ type: 'SELECTION_CHANGE', data: payload });
     figma.ui.postMessage({ type: 'PIPELINE_SELECTION_CHANGE', data: payload });
   }, 50);
