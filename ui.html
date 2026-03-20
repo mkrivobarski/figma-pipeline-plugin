@@ -495,6 +495,11 @@
     .toast.visible { opacity: 1; transform: translateY(0); }
 
     /* ── Queue processing count ───────────────────────────────────────────── */
+    .queue-task-count {
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.35));
+      margin-left: 4px;
+    }
     .queue-processing-count {
       font-size: 10px;
       color: #0d99ff;
@@ -714,6 +719,7 @@
     <div class="view-header">
       <button class="back-btn" id="back-from-queue">‹ Back</button>
       <span class="view-title">Queue</span>
+      <span class="queue-task-count" id="queue-task-count"></span>
       <div class="queue-filter-chip" id="queue-filter-chip">
         <span class="queue-filter-chip-name" id="queue-filter-chip-name"></span>
         <span class="queue-filter-clear" id="queue-filter-clear" title="Show all">×</span>
@@ -1697,6 +1703,10 @@
       var displayTargets = _queueNodeFilter
         ? (targets || []).filter(function(t) { return t.nodeId === _queueNodeFilter; })
         : (targets || []);
+
+      // Task count in header
+      var taskCountEl = document.getElementById('queue-task-count');
+      if (taskCountEl) taskCountEl.textContent = displayTargets.length > 0 ? '(' + displayTargets.length + ')' : '';
 
       if (displayTargets.length === 0) {
         emptyEl.style.display = '';
