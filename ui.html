@@ -180,36 +180,56 @@
       pointer-events: none;
     }
 
-    /* Queue button — secondary style, always enabled */
-    .queue-btn {
+    /* Generate in the action row — flex:1 like the others */
+    .generate-btn-full {
       flex: 1;
       padding: 8px 4px;
-      background: var(--figma-color-bg-secondary, #2c2c2c);
-      border: 1px solid var(--figma-color-border, #3c3c3c);
+      background: #1e6fe0;
+      border: none;
       border-radius: 4px;
-      color: var(--figma-color-text, rgba(255,255,255,0.85));
+      color: #fff;
       font-family: inherit;
       font-size: 12px;
       font-weight: 600;
       cursor: pointer;
       text-align: center;
-      transition: background 0.1s, border-color 0.1s;
-      position: relative;
+      transition: opacity 0.1s;
     }
-    .queue-btn:hover { background: var(--figma-color-bg-tertiary, #333); border-color: rgba(255,255,255,0.18); }
 
-    /* Active-count pip on Queue button */
+    .generate-btn-full:hover { opacity: 0.85; }
+
+    /* ── Queue link — unobtrusive text link above MCP bar ─────────────────── */
+    .home-queue-footer {
+      flex-shrink: 0;
+      border-top: 1px solid var(--figma-color-border, #3c3c3c);
+      padding: 0;
+    }
+    .queue-link {
+      display: block;
+      text-align: center;
+      font-size: 11px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.38));
+      text-decoration: none;
+      padding: 4px 0 2px;
+      position: relative;
+      transition: color 0.1s;
+    }
+    .queue-link:hover { color: var(--figma-color-text, rgba(255,255,255,0.75)); }
+
+    /* Active-count pip on queue link */
     .queue-btn-pip {
-      position: absolute;
-      top: 4px;
-      right: 5px;
+      display: inline-block;
       width: 6px;
       height: 6px;
       border-radius: 50%;
       background: #f5a623;
-      display: none;
+      margin-left: 4px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+      visibility: hidden;
     }
-    .queue-btn-pip.has-active { display: block; }
+    .queue-btn-pip.has-active { visibility: visible; }
     .queue-btn-pip.has-processing { background: #0d99ff; animation: pulse 1.2s infinite; }
 
     /* Node queue status indicator — below target box, tappable */
@@ -271,24 +291,6 @@
       line-height: 1;
     }
     .queue-filter-clear:hover { opacity: 1; }
-
-    /* #20 — Generate is also primary blue; reuse .action-btn */
-    .generate-btn-full {
-      width: 100%;
-      padding: 8px;
-      background: #1e6fe0;
-      border: none;
-      border-radius: 4px;
-      color: #fff;
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      text-align: center;
-      transition: opacity 0.1s;
-    }
-
-    .generate-btn-full:hover { opacity: 0.85; }
 
     /* ── Queue badge ──────────────────────────────────────────────────────── */
     .queue-badge {
@@ -511,8 +513,9 @@
       .target-name { color: #1e1e1e; }
       .label, .target-meta, .target-empty, .queue-empty { color: #999; }
       textarea::placeholder, input[type=text]::placeholder { color: #bbb; }
-      .queue-btn { background: #f0f0f0; border-color: #e5e5e5; color: #1e1e1e; }
-      .queue-btn:hover { background: #e8e8e8; border-color: #ccc; }
+      .queue-link { color: #aaa; }
+      .queue-link:hover { color: #555; }
+      .home-queue-footer { border-color: #e5e5e5; }
       .node-queue-indicator { background: #fff; border-color: #e5e5e5; }
       .node-queue-indicator:hover { background: #f5f5f5; border-color: #ccc; }
       .node-queue-indicator-text { color: #777; }
@@ -557,23 +560,25 @@
         </div>
       </div>
 
-      <!-- Iterate + Fix (primary) -->
+      <!-- Generate + Iterate + Fix row -->
       <div class="action-btn-row">
+        <button class="generate-btn-full" id="btn-generate">Generate</button>
         <button class="action-btn disabled" id="btn-iterate">Iterate</button>
         <button class="action-btn disabled" id="btn-fix">Fix</button>
-        <button class="queue-btn" id="btn-queue">
-          Queue
-          <span class="queue-btn-pip" id="queue-btn-pip"></span>
-        </button>
       </div>
 
-      <!-- Generate (full-width primary) -->
-      <button class="generate-btn-full" id="btn-generate">Generate</button>
-
-      <!-- Queue badge (subtle, shown when active items exist) -->
+      <!-- Queue badge (legacy hidden) -->
       <a class="queue-badge" id="queue-badge" href="#" style="display:none">3 active ›</a>
 
     </div>
+
+    <!-- Queue link — pinned above MCP bar -->
+    <div class="home-queue-footer">
+      <a class="queue-link" id="btn-queue" href="#">
+        Queue<span class="queue-btn-pip" id="queue-btn-pip"></span>
+      </a>
+    </div>
+
   </div>
 
   <!-- ── VIEW: Iterate ──────────────────────────────────────────────────── -->
@@ -1856,7 +1861,8 @@
       showView('generate');
     });
 
-    document.getElementById('btn-queue').addEventListener('click', function() {
+    document.getElementById('btn-queue').addEventListener('click', function(e) {
+      e.preventDefault();
       clearQueueFilter();
       pipelineScanQueue();
       showView('queue');

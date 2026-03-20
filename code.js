@@ -19,7 +19,7 @@ function debugLog() {
 }
 
 // Show minimal UI - compact status indicator
-figma.showUI(__html__, { width: 320, height: 480, visible: true, themeColors: true });
+figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: true });
 
 // ============================================================================
 // CONSOLE CAPTURE — Intercept console.* in the QuickJS sandbox and forward
@@ -2116,7 +2116,7 @@ async function handleReloadUI(msg) {
       });
       // Short delay to let the response message be sent before reload
       setTimeout(function() {
-        figma.showUI(__html__, { width: 320, height: 480, visible: true, themeColors: true });
+        figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: true });
       }, 100);
     } catch (error) {
       var errorMsg = error && error.message ? error.message : String(error);
