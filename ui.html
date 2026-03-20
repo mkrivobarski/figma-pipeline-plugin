@@ -1457,12 +1457,21 @@
     }
 
     // ── View navigation ────────────────────────────────────────────────────────
+    var VIEW_HEIGHTS = {
+      home:     200,
+      iterate:  390,
+      fix:      390,
+      generate: 375,
+      queue:    340
+    };
+
     function showView(name) {
       document.querySelectorAll('.view').forEach(function(v) { v.classList.remove('active'); });
       var el = document.getElementById('view-' + name);
       if (el) el.classList.add('active');
+      var h = VIEW_HEIGHTS[name];
+      if (h) parent.postMessage({ pluginMessage: { type: 'UI_RESIZE', height: h } }, '*');
     }
-
     function goBack() { clearQueueFilter(); showView('home'); }
 
     // ── Creativity segmented control ───────────────────────────────────────────
@@ -2007,6 +2016,7 @@
 
     // ── Initialize ─────────────────────────────────────────────────────────────
     parent.postMessage({ pluginMessage: { type: 'PIPELINE_INIT_REQUEST' } }, '*');
+    parent.postMessage({ pluginMessage: { type: 'UI_RESIZE', height: VIEW_HEIGHTS.home } }, '*');
     pipelineScanQueue();
 
     // #8 — background poll always runs; renderQueue only draws list when queue view active

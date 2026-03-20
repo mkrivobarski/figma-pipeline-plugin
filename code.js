@@ -19,7 +19,7 @@ function debugLog() {
 }
 
 // Show minimal UI - compact status indicator
-figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: true });
+figma.showUI(__html__, { width: 320, height: 200, visible: true, themeColors: true });
 
 // ============================================================================
 // CONSOLE CAPTURE — Intercept console.* in the QuickJS sandbox and forward
@@ -2116,7 +2116,7 @@ async function handleReloadUI(msg) {
       });
       // Short delay to let the response message be sent before reload
       setTimeout(function() {
-        figma.showUI(__html__, { width: 320, height: 420, visible: true, themeColors: true });
+        figma.showUI(__html__, { width: 320, height: 200, visible: true, themeColors: true });
       }, 100);
     } catch (error) {
       var errorMsg = error && error.message ? error.message : String(error);
@@ -2667,6 +2667,7 @@ var messageHandlers = {
   PIPELINE_GET_SEMANTIC_DATA: handlePipelineGetSemanticData,
   PIPELINE_GENERATE:          handlePipelineGenerate,
   PIPELINE_SELECT_NODE:       handlePipelineSelectNode,
+  UI_RESIZE: function(msg) { if (msg.height) figma.ui.resize(320, msg.height); },
 };
 
 // Single unified onmessage handler — dispatches to named handler via table
