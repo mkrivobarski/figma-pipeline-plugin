@@ -1,11 +1,11 @@
-# figma-pipeline-plugin
+# Design Pipeline Plugin
 
-A Figma plugin that lets designers queue iteration instructions on frames, components, and elements directly inside Figma. Instructions are stored in the file via `sharedPluginData` and consumed by the design pipeline.
+A Figma plugin that lets you queue design changes directly on frames, components, and elements inside Figma. Type an instruction on any element, submit it, then let Claude process it from Claude Code — without leaving Figma or re-running the full pipeline.
 
 ## Installation
 
 1. In Figma Desktop, go to **Plugins → Development → Import plugin from manifest…**
-2. Select `manifest.json` from this directory
+2. Navigate to this folder and select `manifest.json`
 3. The plugin appears under **Plugins → Development → Design Pipeline**
 
 ## Directory structure
@@ -123,39 +123,15 @@ Instructions are stored on the Figma node using `sharedPluginData`:
 
 ## MCP bridge
 
-The plugin UI establishes a WebSocket connection to the figma-console MCP server on ports 9223–9232 (tries each in sequence; reconnects automatically). This allows MCP tools like `figma_execute` to call back into the plugin context — enabling variable reads, component scans, and node manipulation from the pipeline agents.
+The plugin connects to the figma-console MCP server running on your machine. This is what
+allows Claude to read and write Figma nodes while you work.
 
-The bridge status bar shows connection state: `connected`, `scanning`, or `disconnected`.
-
-When connected, submitting an instruction also sends a `PIPELINE_QUEUE_CHANGED` notification over the WebSocket so listening agents can react immediately. The plugin works fully without the MCP bridge.
-
----
-
-## Message protocol (UI ↔ main thread)
-
-| Message type | Direction | Purpose |
-|---|---|---|
-| `SELECTION_CHANGE` | main → UI | Push current selection to panel |
-| `PIPELINE_SUBMIT` | UI → main | Store instruction on selected node |
-| `PIPELINE_SUBMIT_RESULT` | main → UI | Confirm store or report error |
-| `PIPELINE_GENERATE` | UI → main | Store generate instruction (no target node required) |
-| `PIPELINE_GENERATE_RESULT` | main → UI | Confirm or report error |
-| `PIPELINE_STATUS_UPDATE` | UI → main | Write back status after pipeline run |
-| `PIPELINE_STATUS_UPDATE_RESULT` | main → UI | Confirm status write |
-| `PIPELINE_CLEAR` | UI → main | Remove instruction from node |
-| `PIPELINE_CLEAR_RESULT` | main → UI | Confirm clear |
-| `PIPELINE_SCAN_QUEUE` | UI → main | Scan all pages for queued instructions |
-| `PIPELINE_SCAN_QUEUE_RESULT` | main → UI | Return queue array |
-| `PIPELINE_SELECT_NODE` | UI → main | Select and zoom to node in canvas |
-| `PIPELINE_SELECT_NODE_RESULT` | main → UI | Confirm or report error |
-| `UI_RESIZE` | UI → main | Request window resize to given height |
+The status bar at the top of the plugin shows the connection state: `connected`, `scanning`,
+or `disconnected`. The plugin works in read-only mode when disconnected.
 
 ---
 
 ## Pipeline integration
 
-The TARGETED pipeline mode is triggered when `annotation-targets.json` is present in the working directory, or when `annotation-scanner` is run explicitly. See:
-
-- `agents/design-pipeline/annotation-scanner.md`
-- `agents/design-pipeline/targeted-intake-agent.md`
-- `agents/design-pipeline/pipeline-intake-agent.md` (TARGETED mode section)
+Queued instructions are picked up by Claude Code when you run `/design-pipe:listen` or
+`/design-pipe:load-queue`. See the main README for the full workflow.
