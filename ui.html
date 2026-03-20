@@ -58,6 +58,30 @@
     .bridge-label { color: var(--figma-color-text-secondary, rgba(255,255,255,0.45)); font-size: 10px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
     .bridge-state { color: var(--figma-color-text, rgba(255,255,255,0.85)); font-size: 10px; font-weight: 500; margin-left: 3px; }
 
+    /* ── Pipeline listen indicator ──────────────────────────────────────────── */
+    .pipeline-listen-pill {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      margin-left: auto;
+      padding: 2px 6px;
+      border-radius: 10px;
+      background: rgba(13,153,255,0.12);
+      border: 1px solid rgba(13,153,255,0.25);
+    }
+    .pipeline-listen-pill.visible { display: flex; }
+    .pipeline-listen-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: #0d99ff;
+      animation: pulse 1.2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    .pipeline-listen-dot.idle { background: #18a957; animation: none; }
+    .pipeline-listen-label { font-size: 10px; font-weight: 600; color: #0d99ff; letter-spacing: 0.3px; text-transform: uppercase; }
+    .pipeline-listen-label.idle { color: #18a957; }
+
     /* ── View system ──────────────────────────────────────────────────────── */
     .view {
       display: none;
@@ -746,6 +770,11 @@
     <div class="status-indicator loading" id="status-dot"></div>
     <span class="bridge-label">MCP</span>
     <span class="bridge-state" id="status-state">connecting</span>
+    <!-- Pipeline listen/batch indicator — shown when :listen or :load-queue is active -->
+    <div class="pipeline-listen-pill" id="pipeline-listen-pill">
+      <div class="pipeline-listen-dot" id="pipeline-listen-dot"></div>
+      <span class="pipeline-listen-label" id="pipeline-listen-label">listening</span>
+    </div>
   </div>
 
   <script>
@@ -767,6 +796,37 @@
       dot.className = 'status-indicator ' + (isError ? 'error' : (isActive ? 'active' : 'loading'));
       stateText.textContent = state;
     }
+
+    // Pipeline listen/batch indicator helper
+    // state: 'listening' | 'processing' | 'idle' | 'hidden'
+    // - 'listening': blue pulsing dot, "listening" label — :listen mode waiting for items
+    // - 'processing': blue pulsing dot, "processing N" label — actively running pipeline
+    // - 'idle': green static dot, "connected" label — :listen connected, nothing pending
+    // - 'hidden': pill hidden — no active session
+    window.setPipelineListenStatus = function(state, count) {
+      var pill  = document.getElementById('pipeline-listen-pill');
+      var dot   = document.getElementById('pipeline-listen-dot');
+      var label = document.getElementById('pipeline-listen-label');
+      if (state === 'hidden') {
+        pill.classList.remove('visible');
+        return;
+      }
+      pill.classList.add('visible');
+      if (state === 'idle') {
+        dot.className = 'pipeline-listen-dot idle';
+        label.className = 'pipeline-listen-label idle';
+        label.textContent = 'connected';
+      } else if (state === 'processing') {
+        dot.className = 'pipeline-listen-dot';
+        label.className = 'pipeline-listen-label';
+        label.textContent = count ? 'processing ' + count : 'processing';
+      } else {
+        // 'listening' (default)
+        dot.className = 'pipeline-listen-dot';
+        label.className = 'pipeline-listen-label';
+        label.textContent = 'listening';
+      }
+    };
 
     // ============================================================================
     // COMMAND INFRASTRUCTURE - Generic plugin command sender
@@ -1426,6 +1486,14 @@
 
         case 'PIPELINE_GENERATE_RESULT':
           pipelineOnGenerateResult(msg);
+          break;
+
+        case 'PIPELINE_LISTEN_STATUS':
+          // Sent by :listen cron ticks and :load-queue runs to update the indicator
+          // msg.data: { state: 'listening'|'processing'|'idle'|'hidden', count?: number, fileUrl?: string }
+          if (msg.data && window.setPipelineListenStatus) {
+            window.setPipelineListenStatus(msg.data.state, msg.data.count);
+          }
           break;
       }
     };
