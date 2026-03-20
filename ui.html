@@ -157,7 +157,7 @@
       gap: 6px;
     }
 
-    /* #18 — primary blue styling for Iterate + Fix, matching Generate */
+    /* #18 — primary blue styling for Iterate + Fix; Queue is secondary */
     .action-btn {
       flex: 1;
       padding: 8px 4px;
@@ -178,6 +178,54 @@
     .action-btn.disabled {
       opacity: 0.35;
       pointer-events: none;
+    }
+
+    /* Queue button — secondary style, always enabled */
+    .queue-btn {
+      flex: 1;
+      padding: 8px 4px;
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 4px;
+      color: var(--figma-color-text, rgba(255,255,255,0.85));
+      font-family: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.1s, border-color 0.1s;
+      position: relative;
+    }
+    .queue-btn:hover { background: var(--figma-color-bg-tertiary, #333); border-color: rgba(255,255,255,0.18); }
+
+    /* Active-count pip on Queue button */
+    .queue-btn-pip {
+      position: absolute;
+      top: 4px;
+      right: 5px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #f5a623;
+      display: none;
+    }
+    .queue-btn-pip.has-active { display: block; }
+    .queue-btn-pip.has-processing { background: #0d99ff; animation: pulse 1.2s infinite; }
+
+    /* Node queue status inside target box */
+    .target-queue-status {
+      display: none;
+      align-items: center;
+      gap: 5px;
+      margin-top: 3px;
+    }
+    .target-queue-status.visible { display: flex; }
+    .target-queue-dot {
+      width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    }
+    .target-queue-label {
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.45));
     }
 
     /* #20 — Generate is also primary blue; reuse .action-btn */
@@ -419,6 +467,8 @@
       .target-name { color: #1e1e1e; }
       .label, .target-meta, .target-empty, .queue-empty { color: #999; }
       textarea::placeholder, input[type=text]::placeholder { color: #bbb; }
+      .queue-btn { background: #f0f0f0; border-color: #e5e5e5; color: #1e1e1e; }
+      .queue-btn:hover { background: #e8e8e8; border-color: #ccc; }
       .creativity-btn { background: #fff; border-color: #e5e5e5; color: #999; }
       .creativity-btn:hover { color: #333; }
       .creativity-btn.active { background: rgba(30,111,224,0.08); border-color: rgba(30,111,224,0.35); color: #1e6fe0; }
@@ -450,6 +500,10 @@
           <div class="target-info" id="home-target-info" style="display:none">
             <div class="target-name" id="home-target-name"></div>
             <div class="target-meta" id="home-target-meta"></div>
+            <div class="target-queue-status" id="home-target-queue-status">
+              <div class="target-queue-dot" id="home-target-queue-dot"></div>
+              <span class="target-queue-label" id="home-target-queue-label"></span>
+            </div>
           </div>
         </div>
       </div>
@@ -458,13 +512,17 @@
       <div class="action-btn-row">
         <button class="action-btn disabled" id="btn-iterate">Iterate</button>
         <button class="action-btn disabled" id="btn-fix">Fix</button>
+        <button class="queue-btn" id="btn-queue">
+          Queue
+          <span class="queue-btn-pip" id="queue-btn-pip"></span>
+        </button>
       </div>
 
-      <!-- Generate (secondary) -->
+      <!-- Generate (full-width primary) -->
       <button class="generate-btn-full" id="btn-generate">Generate</button>
 
-      <!-- Queue badge -->
-      <a class="queue-badge" id="queue-badge" href="#">3 pending ›</a>
+      <!-- Queue badge (subtle, shown when active items exist) -->
+      <a class="queue-badge" id="queue-badge" href="#" style="display:none">3 active ›</a>
 
     </div>
   </div>
@@ -1319,6 +1377,9 @@
     // #1 — track which view issued the in-flight submit
     var pendingSubmitView = null;
 
+    // Cache last queue scan result for node status lookups
+    var _lastQueueItems = [];
+
     var NODE_ICONS = {
       FRAME: '▢', SECTION: '⬜', COMPONENT: '◈', COMPONENT_SET: '◈',
       INSTANCE: '◇', TEXT: 'T', RECTANGLE: '▬', ELLIPSE: '○',
@@ -1405,6 +1466,7 @@
       var hasNode = !!pipelineState.nodeId;
 
       setTargetDisplay('home', hasNode);
+      updateNodeQueueStatus(pipelineState.nodeId);
 
       var btnIterate = document.getElementById('btn-iterate');
       var btnFix     = document.getElementById('btn-fix');
@@ -1448,16 +1510,66 @@
     // ── Queue badge ────────────────────────────────────────────────────────────
     // #2/#7 — count pending + processing from raw status, not derived display status
     function updateQueueBadge(items) {
+      _lastQueueItems = items || [];
       var badge = document.getElementById('queue-badge');
-      var active = (items || []).filter(function(t) {
+      var pip   = document.getElementById('queue-btn-pip');
+      var active = _lastQueueItems.filter(function(t) {
         return t.status === 'pending' || t.status === 'processing';
       });
-      if (active.length > 0) {
-        badge.textContent = active.length + ' active ›';
-        badge.style.display = '';
-      } else {
-        badge.style.display = 'none';
+
+      // Badge (legacy — hidden; kept for screen-reader fallback)
+      badge.style.display = 'none';
+
+      // Queue button pip
+      if (pip) {
+        if (active.length > 0) {
+          pip.classList.add('has-active');
+          var hasProc = active.some(function(t) { return t.status === 'processing'; });
+          if (hasProc) pip.classList.add('has-processing');
+          else pip.classList.remove('has-processing');
+        } else {
+          pip.classList.remove('has-active', 'has-processing');
+        }
       }
+
+      // Refresh node status in case queue changed
+      updateNodeQueueStatus(pipelineState.nodeId);
+    }
+
+    // Show queue status of the currently selected node inside the target box
+    var STATUS_DOT_COLORS = {
+      pending:    '#f5a623',
+      processing: '#0d99ff',
+      done:       '#18a957',
+      'done-validated': '#22c55e',
+      'done-with-warnings': '#f5a623',
+      'failed-parity': '#f59e0b',
+      failed:     '#f24822'
+    };
+
+    function updateNodeQueueStatus(nodeId) {
+      var statusEl = document.getElementById('home-target-queue-status');
+      var dotEl    = document.getElementById('home-target-queue-dot');
+      var labelEl  = document.getElementById('home-target-queue-label');
+      if (!statusEl) return;
+      if (!nodeId) { statusEl.classList.remove('visible'); return; }
+
+      var entry = null;
+      for (var i = 0; i < _lastQueueItems.length; i++) {
+        if (_lastQueueItems[i].nodeId === nodeId) { entry = _lastQueueItems[i]; break; }
+      }
+
+      if (!entry) { statusEl.classList.remove('visible'); return; }
+
+      var displayStatus = entry.status || 'pending';
+      if (entry.status === 'done' && entry.parityScore !== undefined) {
+        if (entry.parityScore >= 0.85)     displayStatus = 'done-validated';
+        else if (entry.parityScore < 0.70) displayStatus = 'failed-parity';
+      }
+
+      dotEl.style.background = STATUS_DOT_COLORS[displayStatus] || '#888';
+      labelEl.textContent = displayStatus.replace(/-/g, ' ');
+      statusEl.classList.add('visible');
     }
 
     function pipelineScanQueue() {
@@ -1664,6 +1776,11 @@
     document.getElementById('btn-generate').addEventListener('click', function() {
       clearInlineError('generate');
       showView('generate');
+    });
+
+    document.getElementById('btn-queue').addEventListener('click', function() {
+      pipelineScanQueue();
+      showView('queue');
     });
 
     document.getElementById('queue-badge').addEventListener('click', function(e) {
