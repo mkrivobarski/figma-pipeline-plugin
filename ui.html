@@ -212,21 +212,65 @@
     .queue-btn-pip.has-active { display: block; }
     .queue-btn-pip.has-processing { background: #0d99ff; animation: pulse 1.2s infinite; }
 
-    /* Node queue status inside target box */
-    .target-queue-status {
+    /* Node queue status indicator — below target box, tappable */
+    .node-queue-indicator {
       display: none;
       align-items: center;
-      gap: 5px;
-      margin-top: 3px;
+      gap: 6px;
+      padding: 5px 8px;
+      background: var(--figma-color-bg-secondary, #2c2c2c);
+      border: 1px solid var(--figma-color-border, #3c3c3c);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.1s, border-color 0.1s;
+      margin-top: -3px;
     }
-    .target-queue-status.visible { display: flex; }
-    .target-queue-dot {
+    .node-queue-indicator.visible { display: flex; }
+    .node-queue-indicator:hover {
+      background: var(--figma-color-bg-tertiary, #333);
+      border-color: rgba(255,255,255,0.18);
+    }
+    .node-queue-indicator-dot {
       width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
     }
-    .target-queue-label {
-      font-size: 10px;
-      color: var(--figma-color-text-secondary, rgba(255,255,255,0.45));
+    .node-queue-indicator-text {
+      flex: 1;
+      font-size: 11px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.5));
     }
+    .node-queue-indicator-arrow {
+      font-size: 10px;
+      color: var(--figma-color-text-secondary, rgba(255,255,255,0.28));
+    }
+
+    /* Queue filter chip in queue view header */
+    .queue-filter-chip {
+      display: none;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: rgba(30,111,224,0.15);
+      border: 1px solid rgba(30,111,224,0.35);
+      border-radius: 10px;
+      font-size: 10px;
+      color: #7aabf7;
+      max-width: 110px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .queue-filter-chip.visible { display: flex; }
+    .queue-filter-chip-name {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      max-width: 80px;
+    }
+    .queue-filter-clear {
+      flex-shrink: 0;
+      cursor: pointer;
+      opacity: 0.7;
+      line-height: 1;
+    }
+    .queue-filter-clear:hover { opacity: 1; }
 
     /* #20 — Generate is also primary blue; reuse .action-btn */
     .generate-btn-full {
@@ -469,6 +513,9 @@
       textarea::placeholder, input[type=text]::placeholder { color: #bbb; }
       .queue-btn { background: #f0f0f0; border-color: #e5e5e5; color: #1e1e1e; }
       .queue-btn:hover { background: #e8e8e8; border-color: #ccc; }
+      .node-queue-indicator { background: #fff; border-color: #e5e5e5; }
+      .node-queue-indicator:hover { background: #f5f5f5; border-color: #ccc; }
+      .node-queue-indicator-text { color: #777; }
       .creativity-btn { background: #fff; border-color: #e5e5e5; color: #999; }
       .creativity-btn:hover { color: #333; }
       .creativity-btn.active { background: rgba(30,111,224,0.08); border-color: rgba(30,111,224,0.35); color: #1e6fe0; }
@@ -500,11 +547,13 @@
           <div class="target-info" id="home-target-info" style="display:none">
             <div class="target-name" id="home-target-name"></div>
             <div class="target-meta" id="home-target-meta"></div>
-            <div class="target-queue-status" id="home-target-queue-status">
-              <div class="target-queue-dot" id="home-target-queue-dot"></div>
-              <span class="target-queue-label" id="home-target-queue-label"></span>
-            </div>
           </div>
+        </div>
+        <!-- Node queue indicator — tappable, shown when selected node has a queue entry -->
+        <div class="node-queue-indicator" id="node-queue-indicator">
+          <div class="node-queue-indicator-dot" id="node-queue-indicator-dot"></div>
+          <span class="node-queue-indicator-text" id="node-queue-indicator-text"></span>
+          <span class="node-queue-indicator-arrow">›</span>
         </div>
       </div>
 
@@ -660,6 +709,10 @@
     <div class="view-header">
       <button class="back-btn" id="back-from-queue">‹ Back</button>
       <span class="view-title">Queue</span>
+      <div class="queue-filter-chip" id="queue-filter-chip">
+        <span class="queue-filter-chip-name" id="queue-filter-chip-name"></span>
+        <span class="queue-filter-clear" id="queue-filter-clear" title="Show all">×</span>
+      </div>
       <span class="queue-processing-count" id="queue-processing-count" style="display:none"></span>
       <div class="view-header-actions">
         <button class="queue-clear-btn" id="queue-clear-done-btn" style="display:none">clear done</button>
@@ -1405,7 +1458,7 @@
       if (el) el.classList.add('active');
     }
 
-    function goBack() { showView('home'); }
+    function goBack() { clearQueueFilter(); showView('home'); }
 
     // ── Creativity segmented control ───────────────────────────────────────────
     function getCreativity(viewName) {
@@ -1536,30 +1589,29 @@
       updateNodeQueueStatus(pipelineState.nodeId);
     }
 
-    // Show queue status of the currently selected node inside the target box
+    // Show/hide node queue indicator below target box
     var STATUS_DOT_COLORS = {
-      pending:    '#f5a623',
-      processing: '#0d99ff',
-      done:       '#18a957',
-      'done-validated': '#22c55e',
+      pending:              '#f5a623',
+      processing:           '#0d99ff',
+      done:                 '#18a957',
+      'done-validated':     '#22c55e',
       'done-with-warnings': '#f5a623',
-      'failed-parity': '#f59e0b',
-      failed:     '#f24822'
+      'failed-parity':      '#f59e0b',
+      failed:               '#f24822'
     };
 
     function updateNodeQueueStatus(nodeId) {
-      var statusEl = document.getElementById('home-target-queue-status');
-      var dotEl    = document.getElementById('home-target-queue-dot');
-      var labelEl  = document.getElementById('home-target-queue-label');
-      if (!statusEl) return;
-      if (!nodeId) { statusEl.classList.remove('visible'); return; }
+      var el    = document.getElementById('node-queue-indicator');
+      var dotEl = document.getElementById('node-queue-indicator-dot');
+      var txtEl = document.getElementById('node-queue-indicator-text');
+      if (!el) return;
+      if (!nodeId) { el.classList.remove('visible'); return; }
 
       var entry = null;
       for (var i = 0; i < _lastQueueItems.length; i++) {
         if (_lastQueueItems[i].nodeId === nodeId) { entry = _lastQueueItems[i]; break; }
       }
-
-      if (!entry) { statusEl.classList.remove('visible'); return; }
+      if (!entry) { el.classList.remove('visible'); return; }
 
       var displayStatus = entry.status || 'pending';
       if (entry.status === 'done' && entry.parityScore !== undefined) {
@@ -1568,8 +1620,29 @@
       }
 
       dotEl.style.background = STATUS_DOT_COLORS[displayStatus] || '#888';
-      labelEl.textContent = displayStatus.replace(/-/g, ' ');
-      statusEl.classList.add('visible');
+      txtEl.textContent = displayStatus.replace(/-/g, ' ');
+      el.classList.add('visible');
+    }
+
+    // Open queue view filtered to a specific node
+    var _queueNodeFilter = null;
+
+    function showQueueForNode(nodeId, nodeName) {
+      _queueNodeFilter = nodeId;
+      var chip     = document.getElementById('queue-filter-chip');
+      var chipName = document.getElementById('queue-filter-chip-name');
+      if (chip) {
+        chipName.textContent = nodeName || nodeId;
+        chip.classList.add('visible');
+      }
+      pipelineScanQueue();
+      showView('queue');
+    }
+
+    function clearQueueFilter() {
+      _queueNodeFilter = null;
+      var chip = document.getElementById('queue-filter-chip');
+      if (chip) chip.classList.remove('visible');
     }
 
     function pipelineScanQueue() {
@@ -1606,7 +1679,12 @@
       var activeView = document.querySelector('.view.active');
       if (!activeView || activeView.id !== 'view-queue') return;
 
-      if (!targets || targets.length === 0) {
+      // Apply node filter if set
+      var displayTargets = _queueNodeFilter
+        ? (targets || []).filter(function(t) { return t.nodeId === _queueNodeFilter; })
+        : (targets || []);
+
+      if (displayTargets.length === 0) {
         emptyEl.style.display = '';
         clearDoneBtn.style.display = 'none';
         return;
@@ -1616,7 +1694,7 @@
 
       var hasDone = false;
 
-      targets.forEach(function(t) {
+      displayTargets.forEach(function(t) {
         var item = document.createElement('div');
         item.className = 'queue-item';
         item.dataset.nodeId = t.nodeId || '';
@@ -1779,8 +1857,22 @@
     });
 
     document.getElementById('btn-queue').addEventListener('click', function() {
+      clearQueueFilter();
       pipelineScanQueue();
       showView('queue');
+    });
+
+    document.getElementById('node-queue-indicator').addEventListener('click', function() {
+      if (pipelineState.nodeId) {
+        showQueueForNode(pipelineState.nodeId, pipelineState.nodeName);
+      }
+    });
+
+    document.getElementById('queue-filter-clear').addEventListener('click', function(e) {
+      e.stopPropagation();
+      clearQueueFilter();
+      // Re-render with full list from cache
+      renderQueue(_lastQueueItems);
     });
 
     document.getElementById('queue-badge').addEventListener('click', function(e) {
